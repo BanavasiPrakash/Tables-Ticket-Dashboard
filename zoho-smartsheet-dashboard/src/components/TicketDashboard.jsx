@@ -2,8 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import Select, { components } from "react-select"; // React Select library for dropdowns
 import { FaBars } from "react-icons/fa"; // FontAwesome bars icon
 import "./TicketDashboard.css"; // Styles for the dashboard
-import AgentTicketAgeTable from "./AgentTicketAgeTable"; // Custom table component
-
+import AgentTicketAgeTable from "./AgentTicketAgeTable/AgentTicketAgeTable";
 
 // Constants representing Zoho IDs for columns and API backend URL
 const ASSIGNEE_COL_ID = 4549002565209988;
@@ -12,11 +11,9 @@ const HOLD_STATUS_COL_ID = 1003;
 const ESCALATED_STATUS_COL_ID = 1004;
 const UNASSIGNED_STATUS_COL_ID = 1005;
 const IN_PROGRESS_STATUS_COL_ID = 1006;
-// const backendurl = "http://localhost:5000";
-const backendurl = "https://ticket-backend-code.onrender.com";
+const backendurl = "http://localhost:5000";
+// const backendurl = "https://ticket-backend-code.onrender.com";
 const CANDIDATES_PER_PAGE = 15;
-
-
 // Custom Option component for react-select with checkbox styling and label truncation
 const Option = (props) => (
   <components.Option {...props}>
@@ -46,8 +43,6 @@ const Option = (props) => (
     </span>
   </components.Option>
 );
-
-
 // DepartmentOption renders an option representing a department with expandable agent list
 const DepartmentOption = (props) => {
   // Destructure props for clarity
@@ -55,7 +50,6 @@ const DepartmentOption = (props) => {
   const deptAgentMap = props.data.deptAgentMap || {};
   const agentNames = deptAgentMap[String(props.data.value)] || [];
   const expanded = expandedMap[props.data.value] || false;
-
   // Toggle expanded state when arrow clicked
   const handleExpand = (e) => {
     e.stopPropagation();
@@ -64,7 +58,6 @@ const DepartmentOption = (props) => {
       [props.data.value]: !expanded,
     }));
   };
-
   return (
     <div style={{ display: "flex", flexDirection: "column" }} onMouseDown={(e) => e.preventDefault()}>
       {/* Header row with checkbox, label and expand arrow */}
@@ -88,7 +81,6 @@ const DepartmentOption = (props) => {
           {expanded ? "▼" : "▶"}
         </span>
       </div>
-
       {/* Expanded agent list */}
       {expanded && (
         <div
@@ -134,8 +126,6 @@ const DepartmentOption = (props) => {
     </div>
   );
 };
-
-
 // Styles for react-select dropdown components
 const selectStyles = {
   control: (base) => ({
@@ -180,7 +170,6 @@ const selectStyles = {
     minWidth: 180,
   }),
 };
-
 // Color mapping for statuses useful in UI mini-boxes etc.
 const statusColors = {
   open: "#bd2331",         // red for open tickets
@@ -189,12 +178,10 @@ const statusColors = {
   escalated: "#ef6724",    // orange for escalated tickets
   // add more if needed
 };
-
-
 function TicketDashboard() {
   // Ref to ensure fetch is only done once
   const hasFetchedRef = useRef(false);
-
+  const [archivedRows, setArchivedRows] = useState([]);
   const [rows, setRows] = useState(() => {
     const saved = localStorage.getItem("ticketDashboardRows");
     return saved ? JSON.parse(saved) : [];
@@ -203,6 +190,14 @@ function TicketDashboard() {
   const [membersData, setMembersData] = useState(() => {
     const saved = localStorage.getItem("ticketDashboardMembers");
     return saved ? JSON.parse(saved) : [];
+  });
+  const [metricsRows, setMetricsRows] = useState(() => {
+    const saved = localStorage.getItem("ticketMetricsRows");
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
   const [departmentViewEnabled, setDepartmentViewEnabled] = useState(false)
   const [departmentMembersMap, setDepartmentMembersMap] = useState({});
@@ -215,25 +210,21 @@ function TicketDashboard() {
   const [currentAgentPage, setCurrentAgentPage] = useState(1);
   const [sortOrder, setSortOrder] = useState("asc");
   const [filtersVisible, setFiltersVisible] = useState(false);
-
   // Summary counts for different ticket statuses for display
   const [openSum, setOpenSum] = useState(null);
   const [holdSum, setHoldSum] = useState(null);
   const [escalatedSum, setEscalatedSum] = useState(null);
   const [inProgressSum, setInProgressSum] = useState(null);
   const [globalUnassignedSum, setGlobalUnassignedSum] = useState(null);
-
   // Loading and error states during data fetches
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
   // Carousel state for displaying unassigned ticket numbers
   const [unassignedTicketNumbers, setUnassignedTicketNumbers] = useState(() => {
     const saved = localStorage.getItem("unassignedTicketNumbers");
     return saved ? JSON.parse(saved) : [];
   });
   const [currentUnassignedIndex, setCurrentUnassignedIndex] = useState(0);
-
   // Other UI states and filters
   const [filteredCandidates, setFilteredCandidates] = useState([]);
   const [departmentRows, setDepartmentRows] = useState([]);
@@ -244,7 +235,6 @@ function TicketDashboard() {
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
   const [gridCells, setGridCells] = useState([]);
   const intervalRef = useRef(null);
-
   const departmentsMap = useMemo(() => {
     const map = {};
     (departmentsList || []).forEach(dept => {
@@ -252,10 +242,8 @@ function TicketDashboard() {
     });
     return map;
   }, [departmentsList]);
-
   // State tracking selected age filters for ticket age columns
   const [selectedAges, setSelectedAges] = useState([]);
-
   // Filtering members by selected departments
   const filteredMembers =
     selectedDepartments && selectedDepartments.length > 0
@@ -265,8 +253,7 @@ function TicketDashboard() {
           selectedDepartments.map(d => String(d.value)).includes(String(deptId))
         )
       )
-      : membersData;
-
+     : membersData;
   // Status options for filtering
   const statusOptions = [
     { value: "open", label: "Open" },
@@ -276,7 +263,6 @@ function TicketDashboard() {
     // { value: "unassigned", label: "Unassigned" },
     { value: "total", label: "Total" },
   ];
-
   // Memoized renderer for department dropdown option with expand/collapse and agent toggles
   const DepartmentOptionRenderer = useMemo(() => {
     return (props) => (
@@ -299,7 +285,6 @@ function TicketDashboard() {
       />
     );
   }, [selectedDeptAgents, expandedMap]);
-
   // Custom components object for react-select dropdown
   const departmentSelectComponents = useMemo(
     () => ({
@@ -307,7 +292,6 @@ function TicketDashboard() {
     }),
     [DepartmentOptionRenderer]
   );
-
   // Effect to load department list from backend on mount, caching result locally
   useEffect(() => {
     async function refreshDepartments() {
@@ -328,44 +312,61 @@ function TicketDashboard() {
     }
     refreshDepartments();
   }, []);
-
   // Function to fetch dashboard data (agents/ticket counts etc.) and update state + cache
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `${backendurl}/api/zoho-assignees-with-ticket-counts`
-      );
+      // 1) main counts + cache active tickets
+      const res = await fetch(`${backendurl}/api/zoho-assignees-with-ticket-counts`);
       if (res.ok) {
         const data = await res.json();
         setMembersData(data.members || []);
         setUnassignedTicketNumbers(data.unassignedTicketNumbers || []);
-        localStorage.setItem(
-          "ticketDashboardMembers",
-          JSON.stringify(data.members || [])
-        );
-        localStorage.setItem(
-          "ticketDashboardRows",
-          JSON.stringify(data.members || [])
-        );
-        localStorage.setItem(
-          "unassignedTicketNumbers",
-          JSON.stringify(data.unassignedTicketNumbers || [])
-        );
+        localStorage.setItem("ticketDashboardMembers", JSON.stringify(data.members || []));
+        localStorage.setItem("ticketDashboardRows", JSON.stringify(data.members || []));
+        localStorage.setItem("unassignedTicketNumbers", JSON.stringify(data.unassignedTicketNumbers || []));
+      }
+      // 2) metrics for active tickets (uses cachedActiveTickets on backend)
+      // 2) metrics for active tickets (uses cachedActiveTickets on backend)
+      const mRes = await fetch(`${backendurl}/api/ticket-metrics-simple`);
+      if (mRes.ok) {
+        const mData = await mRes.json();
+        const rows = mData.rows || [];
+        setMetricsRows(rows);
+        localStorage.setItem("ticketMetricsRows", JSON.stringify(rows));
+      } else {
+        setMetricsRows([]);
+        localStorage.removeItem("ticketMetricsRows");
       }
     } catch {
       // Optional: set error state
+      setMetricsRows([]);
     }
     setLoading(false);
   };
+  const fetchArchivedTickets = async (departmentId) => {
+    try {
+      // if departmentId is passed, use it
+      // if not, call without query param → all departments
+      const params = departmentId ? `?departmentId=${departmentId}` : "";
+      const res = await fetch(`${backendurl}/api/archived-tickets${params}`);
 
+      if (res.ok) {
+        const data = await res.json();
+        setArchivedRows(data.rows || []);
+      } else {
+        setArchivedRows([]);
+      }
+    } catch {
+      setArchivedRows([]);
+    }
+  };
   // Load dashboard data on mount and refresh every 5 minutes
   useEffect(() => {
     fetchDashboardData();
     const intervalId = setInterval(fetchDashboardData, 300000);
     return () => clearInterval(intervalId);
   }, []);
-
   // Update latest unassigned ticket number in localStorage, rotating through list
   useEffect(() => {
     if (unassignedTicketNumbers.length > 0) {
@@ -374,13 +375,11 @@ function TicketDashboard() {
       localStorage.setItem("latestUnassignedTicketNumber", latestTicketNum);
     }
   }, [unassignedTicketNumbers, currentUnassignedIndex]);
-
   // Utility to get last saved ticket number with leading zero padding for display
   const getStoredTicketNumber = () => {
     const saved = localStorage.getItem("latestUnassignedTicketNumber");
     return saved ? saved.toString().padStart(5, "0") : "00000";
   };
-
   // Build map of department ID to list of agent names that have tickets in that department
   const departmentAgentWithTicketsMap = useMemo(() => {
     const map = {};
@@ -398,7 +397,6 @@ function TicketDashboard() {
     });
     return map;
   }, [departmentsList, membersData]);
-
   // Rotate current unassigned ticket index every 5 seconds to cycle display
   useEffect(() => {
     if (unassignedTicketNumbers.length > 0) {
@@ -408,7 +406,6 @@ function TicketDashboard() {
       return () => clearInterval(interval);
     }
   }, [unassignedTicketNumbers]);
-
   // Map members data to rows for dashboard grid and cache rows in localStorage
   useEffect(() => {
     if (!membersData || membersData.length === 0) return;
@@ -428,7 +425,6 @@ function TicketDashboard() {
     setRows(newRows);
     localStorage.setItem("ticketDashboardRows", JSON.stringify(newRows));
   }, [membersData]);
-
   // Cache selected filters and department rows in localStorage whenever they change
   useEffect(() => {
     localStorage.setItem("selectedDepartments", JSON.stringify(selectedDepartments));
@@ -437,7 +433,6 @@ function TicketDashboard() {
     localStorage.setItem("departmentRows", JSON.stringify(departmentRows));
     localStorage.setItem("departmentSummaryRows", JSON.stringify(departmentSummaryRows));
   }, [selectedDepartments, selectedCandidates, selectedStatuses, departmentRows, departmentSummaryRows]);
-
   // Calculate sums of tickets in all rows for summary display
   useEffect(() => {
     let open = 0, hold = 0, escalated = 0, inProgress = 0, unassigned = 0;
@@ -458,7 +453,6 @@ function TicketDashboard() {
     setInProgressSum(inProgress);
     setGlobalUnassignedSum(unassigned);
   }, [rows]);
-
   // Build list of valid candidate options (for filter dropdown)
   const candidateOptions = useMemo(() => {
     const validNames = [];
@@ -477,7 +471,6 @@ function TicketDashboard() {
       .sort()
       .map((name) => ({ value: name, label: name }));
   }, [rows]);
-
   // Memo array of selected status keys for filtering, fallback to all if none selected
   const selectedStatusKeys = useMemo(
     () =>
@@ -486,20 +479,17 @@ function TicketDashboard() {
         : statusOptions.map((s) => s.value),
     [selectedStatuses]
   );
-
   // Filter function for candidate filtering by text input or selection
   const personFilterOption = (option, inputValue) => {
     if (!inputValue) return true;
     if (selectedCandidates.find((sel) => sel.value === option.value)) return true;
     return option.label.toLowerCase().includes(inputValue.toLowerCase());
   };
-
   // Handler to choose agent ticket age filter and hide dropdown
   const handleTimeSelect = (option) => {
     setAgentTicketAgeFilter(option);
     setShowTimeDropdown(false);
   };
-
   // Setup pagination auto flip timer for candidates if multiple pages
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -512,7 +502,6 @@ function TicketDashboard() {
     }
     return () => intervalRef.current && clearInterval(intervalRef.current);
   }, [filteredCandidates]);
-
   // Memo for department dropdown options including expand map
   const departmentDropdownOptions = useMemo(() => {
     return [...departmentsList]
@@ -524,49 +513,47 @@ function TicketDashboard() {
         deptAgentMap: departmentAgentWithTicketsMap,
       }));
   }, [departmentsList, departmentAgentWithTicketsMap]);
-
   // Compute total pages for department dropdown pagination
   const totalDeptPages = departmentDropdownOptions.length;
-
   // Compute current departments slice for pagination display
   const currentDepartments = useMemo(() => {
     if (selectedDepartments.length === 0) return [];
     return selectedDepartments.slice(currentDeptPage - 1, currentDeptPage);
   }, [selectedDepartments, currentDeptPage]);
-
   // Reset current department page if the selected departments shrink below page count
   useEffect(() => {
     if (currentDeptPage > selectedDepartments.length && selectedDepartments.length > 0) {
       setCurrentDeptPage(1);
     }
   }, [selectedDepartments, currentDeptPage]);
-
+  // NEW: load archived tickets when "archived" is selected
+  // when user checks "Archived Tickets" checkbox in TABLES menu
+  useEffect(() => {
+    if (selectedAges.includes("archived")) {
+      // default: all departments
+      fetchArchivedTickets(null);
+    }
+  }, [selectedAges]);
   // Array of gorgeous blue gradient background colors for departments (can be customized)
   const departmentBgColors = [
     "linear-gradient(135deg, #132344ff 0%, #132344ff 50%, #0d172d 100%)", // Navy blue -> royal blue -> midnight blue
     // Additional options commented out for possible use later
   ];
-
-
   // Show legend for total if any selected status has value "total"
   const showLegendTotal = selectedStatuses.some((s) => s.value === "total");
-
   // Current ticket number for display, padded to 5 digits, cycling through unassigned tickets
   const currentTicketNumber =
     unassignedTicketNumbers.length > 0
       ? unassignedTicketNumbers[currentUnassignedIndex].toString().padStart(5, "0")
       : getStoredTicketNumber();
-
   // Effect to process rows, apply filters, pagination and generate grid cells for display
   useEffect(() => {
     // Start with all rows in the data source
     let dataSource = rows;
-
     // If departments are selected, filter membersData to those departments and map to rows format
     if (selectedDepartments.length > 0) {
       // Extract department IDs for filtering
       const allowedDeptIds = selectedDepartments.map((dep) => String(dep.value));
-
       // Filter members to those with department in allowedDeptIds
       dataSource = membersData
         .filter(
@@ -591,7 +578,6 @@ function TicketDashboard() {
             member.id,
         }));
     }
-
     // If candidates filter is applied, filter rows by candidate name
     if (selectedCandidates.length > 0) {
       const allowedNames = selectedCandidates.map((c) => c.value.trim().toLowerCase());
@@ -599,7 +585,6 @@ function TicketDashboard() {
         allowedNames.includes(row.cells.find((c) => c.columnId === ASSIGNEE_COL_ID)?.value?.trim().toLowerCase())
       );
     }
-
     // Map dataSource to array of [candidateName, ticketCountsObject]
     const filteredCandidatesArr = dataSource.map((row) => {
       const cells = Array.isArray(row.cells) ? row.cells : [];
@@ -616,27 +601,21 @@ function TicketDashboard() {
       ];
     });
     setFilteredCandidates(filteredCandidatesArr);
-
     // Sort filtered candidates array alphabetically by candidate name, respect sort order
     const sorted = [...filteredCandidatesArr].sort((a, b) => {
       if (a[0] < b[0]) return sortOrder === "asc" ? -1 : 1;
       if (a[0] > b[0]) return sortOrder === "asc" ? 1 : -1;
       return 0;
     });
-
     // Filter out candidates with zero tickets across all statuses
     const nonZero = sorted.filter(([_, c]) => c.open > 0 || c.hold > 0 || c.escalated > 0 || c.unassigned > 0 || c.inProgress > 0);
-
     // Calculate total pages for pagination based on number of filtered candidates and rows per page
     const totalPages = Math.ceil(nonZero.length / CANDIDATES_PER_PAGE);
-
     // Reset current page to 1 if out of range
     if (currentPage > totalPages && totalPages > 0) setCurrentPage(1);
-
     // Calculate slice range for current page
     const start = (currentPage - 1) * CANDIDATES_PER_PAGE;
     const end = Math.min(start + CANDIDATES_PER_PAGE, nonZero.length);
-
     // Build JSX cells for current page candidates with animation delay for staggered appearance
     const tempCells = [];
     for (let i = start; i < end; i++) {
@@ -676,8 +655,6 @@ function TicketDashboard() {
     selectedCandidates,
     selectedStatuses,
   ]);
-
-
   // Conditional rendering of department grids vs fallback grid container
   let departmentGrids = null;
 
@@ -687,17 +664,17 @@ function TicketDashboard() {
       <>
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "2px",
-            marginTop: "20px",
-            position: "relative",
-            width: "100%",
-            maxWidth: "calc(1400px + 40px)",
-            margin: "10px auto 0 auto",
-            padding: "0",
-            boxSizing: "border-box",
+       marginTop: 24,
+      display: "grid",
+      gap: "18px",
+      gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+      maxWidth: 1450,
+      marginLeft: "auto",
+      marginRight: "auto",
+      padding: "0 20px 0 20px",
+      boxSizing: "border-box",
+      height: "calc(100vh - 180px)", // adjust 180 to match your header+legend height
+      alignContent: "space-between",  // stretch rows from top to bottom
           }}
         >
           {/* If multiple departments, show left pager arrow */}
@@ -745,28 +722,22 @@ function TicketDashboard() {
             {/* For each current department, render its grid */}
             {currentDepartments.map((dep, depIdx) => {
               const allowedDeptId = String(dep.value);
-
               // Filter members to those who belong to this department
               const departmentMembersRows = membersData.filter(
                 (m) => Array.isArray(m.departmentIds) && m.departmentIds.includes(allowedDeptId)
               );
-
               // Agent names mapped by department with tickets
               const allDepartmentMemberNames = departmentAgentWithTicketsMap[allowedDeptId] || [];
-
               // Map to track unique agents by normalized name for this department
               const uniqueAgentsMap = new Map();
-
               // Populate uniqueAgentsMap with agents who have tickets
               departmentMembersRows.forEach((agent) => {
                 const normalizedName = agent.name.trim().toLowerCase();
                 const totalTickets =
                   (agent.departmentTicketCounts && agent.departmentTicketCounts[allowedDeptId]) || 0;
-
                 // Department scoped aging counts fallback to empty object
                 const deptAging =
                   (agent.departmentAgingCounts && agent.departmentAgingCounts[allowedDeptId]) || {};
-
                 // Set per-agent status counts from aging tickets arrays lengths
                 uniqueAgentsMap.set(normalizedName, {
                   id: agent.id,
@@ -791,7 +762,6 @@ function TicketDashboard() {
                   totalTickets: totalTickets,
                 });
               });
-
               // Add fallback agents by name if not already included
               allDepartmentMemberNames.forEach((name) => {
                 const normalizedName = name.trim().toLowerCase();
@@ -808,7 +778,6 @@ function TicketDashboard() {
                   });
                 }
               });
-
               // Determine agents to show based on selected agents or only those with tickets
               const deptSelectedAgents = selectedDeptAgents[allowedDeptId] || [];
               const agentsToShow =
@@ -817,14 +786,11 @@ function TicketDashboard() {
                     deptSelectedAgents.includes(agent.name)
                   )
                   : Array.from(uniqueAgentsMap.values()).filter(agent => agent.totalTickets > 0);
-
               // Alphabetically sort agents before rendering
               const sortedAgentsToShow = agentsToShow.slice().sort((a, b) =>
                 a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
               );
-
               // Render the department grid container
-
               return (
                 <div
                   key={dep.value}
@@ -863,7 +829,6 @@ function TicketDashboard() {
                   >
                     {dep.label.toUpperCase()}
                   </div>
-
                   {/* Agents grid */}
                   <div
                     style={{
@@ -914,7 +879,6 @@ function TicketDashboard() {
                         >
                           {agent.name}
                         </div>
-
                         {/* Ticket status counts */}
                         {(selectedStatusKeys.includes("total") || selectedStatusKeys.length === 0) ? (
                           /* Show total ticket count */
@@ -973,7 +937,6 @@ function TicketDashboard() {
               );
             })}
           </div>
-
           {/* If multiple departments, show right pager arrow */}
           {selectedDepartments.length > 1 && (
             <div
@@ -1017,22 +980,20 @@ function TicketDashboard() {
       <div
         className="grid-container"
         style={{
-          marginTop: 32,
+          marginTop: 40,
           display: "grid",
           gap: "18px",
-          gridTemplateColumns: "repeat(5, 1fr)",
-          gridTemplateRows: "repeat(3, auto)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
           maxWidth: 1450,
           marginLeft: "auto",
           marginRight: "auto",
-          padding: "0 20px",
+          padding: "0 2px",
         }}
       >
         {gridCells}
       </div>
     );
   }
-
   // 4 Render section with fragments <>
   return (
     <>
@@ -1041,7 +1002,7 @@ function TicketDashboard() {
         className="dashboard-header-main"
         style={{
           maxWidth: "100%",
-          margin: "0 auto 30px auto",
+          margin: "0 auto 5px auto",
           position: "relative",
           padding: "0",
           boxSizing: "border-box",
@@ -1055,7 +1016,7 @@ function TicketDashboard() {
             alignItems: "center",
             justifyContent: "space-between",
             position: "relative",
-            padding: "10px 20px",
+            padding: "0px 0px",
           }}
         >
           {/* Left logo */}
@@ -1063,14 +1024,14 @@ function TicketDashboard() {
             className="header-image"
             src="/Suprajit_logo_BG1.png"
             alt="Left icon"
-            style={{ height: 85, width: "auto" }}
+            style={{ height: 65, width: "auto" }}
           />
           {/* Center title */}
           <div
             className="dashboard-title-container"
             style={{
               fontWeight: 900,
-              fontSize: 60,
+              fontSize: 50,
               letterSpacing: 2,
               color: "",
               textShadow: "2px 2px 6px rgba(0, 0, 50, 0.7)",
@@ -1078,8 +1039,6 @@ function TicketDashboard() {
               textTransform: "uppercase",
               position: "relative",
               zIndex: 2,
-
-
             }}
           >
             TICKET DASHBOARD
@@ -1099,23 +1058,24 @@ function TicketDashboard() {
               className="header-image"
               src="/IT-LOGO.png"
               alt="Right icon"
-              style={{ height: 140, width: "auto" }}
+              style={{ height: 85, width: "auto" }}
             />
           </div>
         </div>
 
         {/* Filters row below header */}
         <div
-          className="dashboard-header-filters"
-          style={{
-            maxWidth: 1400,
-            margin: "0 auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-            padding: "10px 20px",
-          }}
+  className="dashboard-header-filters"
+  style={{
+    maxWidth: "100%",
+    margin: "0 auto",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    padding: "0 2px",      // smaller side padding
+    boxSizing: "border-box",
+  }}
         >
           {/* Spacer */}
           <div style={{ height: 40 }} />
@@ -1123,16 +1083,18 @@ function TicketDashboard() {
           <div
             className="legend-bar"
             style={{
-              display: "flex",
-              gap: 10,
-              flex: filtersVisible ? "initial" : 1,
-              transition: "flex 0.3s ease",
+             display: "flex",
+    gap: 8,
+    flex: 1,
+    transition: "flex 0.3s ease",
+    width: "100%",
+    justifyContent: "space-between",
             }}
           >
             {/* Open tickets legend item */}
             <div
               className="legend-item open"
-              style={{ flex: 1, textAlign: "center", fontSize: 23, fontWeight: 900 }}
+              style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: 900 }}
             >
               OPEN{" "}
               <span style={{ fontWeight: 900, marginLeft: 4 }}>
@@ -1142,7 +1104,7 @@ function TicketDashboard() {
             {/* Hold tickets legend item */}
             <div
               className="legend-item hold"
-              style={{ flex: 1, textAlign: "center", fontSize: 23, fontWeight: 900 }}
+              style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: 900 }}
             >
               HOLD{" "}
               <span style={{ fontWeight: 900, marginLeft: 4 }}>
@@ -1152,7 +1114,7 @@ function TicketDashboard() {
             {/* In Progress tickets legend item */}
             <div
               className="legend-item inprogress"
-              style={{ flex: 1, textAlign: "center", fontSize: 23, fontWeight: 900 }}
+              style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: 900 }}
             >
               IN PROGRESS{" "}
               <span style={{ fontWeight: 900, marginLeft: 4 }}>
@@ -1162,7 +1124,7 @@ function TicketDashboard() {
             {/* Escalated tickets legend item */}
             <div
               className="legend-item escalated"
-              style={{ flex: 1, textAlign: "center", fontSize: 23, fontWeight: 900 }}
+              style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: 900 }}
             >
               ESCALATED{" "}
               <span style={{ fontWeight: 900, marginLeft: 4 }}>
@@ -1180,7 +1142,7 @@ function TicketDashboard() {
                 justifyContent: "center",
                 alignItems: "center",
                 gap: 10,
-                paddingLeft: 24,
+                paddingLeft: 10,
                 paddingRight: 0,
               }}
             >
@@ -1194,14 +1156,14 @@ function TicketDashboard() {
                   color: "white",
                   borderRadius: 14,
                   fontWeight: 900,
-                  fontSize: 30,
+                  fontSize: 25,
                   userSelect: "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "120px",
+                  width: "90px",
                   height: "60px",
-                  minWidth: "120px",
+                  minWidth: "100px",
                   minHeight: "60px",
                   letterSpacing: 2,
                   boxSizing: "border-box",
@@ -1239,17 +1201,16 @@ function TicketDashboard() {
               </div>
             )}
           </div>
-
           {/* Hamburger toggle button to show or hide filters */}
           <button
             className="hamburger-btn"
             style={{
               width: 30,
               height: 30,
-              borderRadius: 10,
+              borderRadius: 0,
               border: "none",
               cursor: "pointer",
-              marginLeft: 20,
+              marginLeft: 5,
               display: "block",
             }}
             onClick={() => setFiltersVisible((v) => !v)}
@@ -1257,249 +1218,202 @@ function TicketDashboard() {
           >
             <FaBars size={18} color="Black" />
           </button>
-
           {/* Filter panel for selecting agents, departments, statuses and time */}
           {filtersVisible && (
-            <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
-              {/* Agent multi-select filter */}
-              <div style={{ minWidth: 100 }}>
-                <Select
-                  closeMenuOnSelect={false}
-                  hideSelectedOptions={false}
-                  components={{ Option }}
-                  isMulti
-                  options={candidateOptions}
-                  value={selectedCandidates}
-                  onChange={setSelectedCandidates}
-                  placeholder="AGENTS"
-                  styles={selectStyles}
-                  menuPortalTarget={document.body}
-                  filterOption={personFilterOption}
-                  isSearchable
-                  menuPlacement="auto"
-                  maxMenuHeight={350}
-                />
-              </div>
+  <div className="filter-bar">
+    {/* AGENTS */}
+    <div className="filter-item">
+      <Select
+        closeMenuOnSelect={false}
+        hideSelectedOptions={false}
+        components={{ Option }}
+        isMulti
+        options={candidateOptions}
+        value={selectedCandidates}
+        onChange={setSelectedCandidates}
+        placeholder="AGENTS"
+        styles={selectStyles}
+        menuPortalTarget={document.body}
+        filterOption={personFilterOption}
+        isSearchable
+        menuPlacement="auto"
+        maxMenuHeight={350}
+        classNamePrefix="react-select"
+      />
+    </div>
 
-              <div style={{ minWidth: 1 }} />
+    {/* DEPARTMENT */}
+    <div className="filter-item">
+      <Select
+        closeMenuOnSelect={false}
+        hideSelectedOptions={false}
+        components={departmentSelectComponents}
+        isMulti
+        options={departmentDropdownOptions}
+        value={selectedDepartments}
+        onChange={setSelectedDepartments}
+        placeholder="DEPARTMENT"
+        styles={selectStyles}
+        menuPortalTarget={document.body}
+        isSearchable
+        menuPlacement="auto"
+        maxMenuHeight={280}
+        menuIsOpen={deptMenuIsOpen}
+        onMenuOpen={() => setDeptMenuIsOpen(true)}
+        onMenuClose={() => setDeptMenuIsOpen(false)}
+        classNamePrefix="react-select"
+      />
+    </div>
 
-              {/* Department multi-select filter */}
-              <div style={{ minWidth: 130 }}>
-                <Select
-                  closeMenuOnSelect={false}
-                  hideSelectedOptions={false}
-                  components={departmentSelectComponents}
-                  isMulti
-                  options={departmentDropdownOptions}
-                  value={selectedDepartments}
-                  onChange={setSelectedDepartments}
-                  placeholder="DEPARTMENTS"
-                  styles={selectStyles}
-                  menuPortalTarget={document.body}
-                  isSearchable
-                  menuPlacement="auto"
-                  maxMenuHeight={280}
-                  menuIsOpen={deptMenuIsOpen}
-                  onMenuOpen={() => setDeptMenuIsOpen(true)}
-                  onMenuClose={() => setDeptMenuIsOpen(false)}
-                />
-              </div>
+    {/* STATUS */}
+    <div className="filter-item">
+      <Select
+        closeMenuOnSelect={false}
+        hideSelectedOptions={false}
+        components={{ Option }}
+        isMulti
+        options={statusOptions}
+        value={selectedStatuses}
+        onChange={setSelectedStatuses}
+        placeholder="STATUS"
+        styles={selectStyles}
+        menuPortalTarget={document.body}
+        classNamePrefix="react-select"
+      />
+    </div>
 
-              <div style={{ minWidth: 115 }}>
-                {/* Status multi-select filter */}
-                <Select
-                  closeMenuOnSelect={false}
-                  hideSelectedOptions={false}
-                  components={{ Option }}
-                  isMulti
-                  options={statusOptions}
-                  value={selectedStatuses}
-                  onChange={setSelectedStatuses}
-                  placeholder="STATUS"
-                  styles={selectStyles}
-                  menuPortalTarget={document.body}
-                />
-              </div>
-
-              {/* Time filter dropdown */}
-              <div style={{ position: "relative", minWidth: 60 }}>
-                <button
-                  className="dropbtn"
-                  style={{
-                    width: "60px",
-                    height: "40px",
-                    borderRadius: "18px",
-                    border: "1px solid #5e7ce4",
-                    fontWeight: 900,
-                    background: "linear-gradient(145deg, #d0daf9, #a3baff)",
-                    color: "#606060",
-                    fontSize: "14px",
-                    cursor: "pointer"
-                  }}
-                  onClick={() => setShowTimeDropdown(!showTimeDropdown)}
-                  onBlur={() => setTimeout(() => setShowTimeDropdown(false), 200)}
-                >
-                  TIME
-                </button>
-
-                {/* Time filter checkboxes for ticket age buckets */}
-                {showTimeDropdown && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      width: "100%",
-                      height: "auto",
-                      fontSize: 10,
-                      top: 50,
-                      left: 0,
-                      minWidth: 100,
-                      background: "#dbdee7ff",
-                      color: "black",
-                      borderRadius: 18,
-                      border: "1px solid #1e4489",
-                      zIndex: 8,
-                      padding: "10px"
-                    }}
-                    tabIndex={-1}
-                    onMouseDown={e => e.preventDefault()} // Keep dropdown open on click inside
-                  >
-                    {/* Checkboxes for ticket age groups */}
-                    <label style={{ display: "flex", alignItems: "center", padding: "5px 0", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedAges.includes("fifteenDays")}
-                        onChange={e => {
-                          setSelectedAges(prev =>
-                            e.target.checked
-                              ? [...prev, "fifteenDays"]
-                              : prev.filter(v => v !== "fifteenDays")
-                          );
-                        }}
-                        style={{ marginRight: 8 }}
-                      />
-                      1 - 15 Days Tickets
-                    </label>
-
-                    <label style={{ display: "flex", alignItems: "center", padding: "5px 0", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedAges.includes("sixteenToThirty")}
-                        onChange={e => {
-                          setSelectedAges(prev =>
-                            e.target.checked
-                              ? [...prev, "sixteenToThirty"]
-                              : prev.filter(v => v !== "sixteenToThirty")
-                          );
-                        }}
-                        style={{ marginRight: 8 }}
-                      />
-                      16 - 30 Days Tickets
-                    </label>
-
-                    <label style={{ display: "flex", alignItems: "center", padding: "5px 0", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedAges.includes("month")}
-                        onChange={e => {
-                          setSelectedAges(prev =>
-                            e.target.checked
-                              ? [...prev, "month"]
-                              : prev.filter(v => v !== "month")
-                          );
-                        }}
-                        style={{ marginRight: 8 }}
-                      />
-                      30+ Days Tickets
-                    </label>
-
-                    <label style={{ display: "flex", alignItems: "center", padding: "5px 0", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={departmentViewEnabled}
-                        onChange={e => setDepartmentViewEnabled(e.target.checked)}
-                        style={{ marginRight: 8 }}
-                      />
-                      Departments
-                    </label>
-
-                    <label style={{ display: "flex", alignItems: "center", padding: "5px 0", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedAges.includes("pending")}
-                        onChange={e => {
-                          setSelectedAges(prev =>
-                            e.target.checked
-                              ? [...prev, "pending"]
-                              : prev.filter(v => v !== "pending")
-                          );
-                        }}
-                        style={{ marginRight: 8 }}
-                      />
-                      Status-Pending
-                    </label>
-
-
-
-
-                  </div>
-                )}
-              </div>
-
-              {/* Sort order dropdown */}
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                style={{
-                  width: '60px',
-                  height: '40px',
-                  borderRadius: '18px',
-                  border: '1px solid #5e7ce4',
-                  fontWeight: 900,
-                  background: 'linear-gradient(145deg, #d0daf9, #a3baff)',
-                  color: '#606060',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  boxShadow: '8px 8px 28px rgba(63,81,181,0.8), inset 6px 6px 14px #fff, inset -6px -6px 14px rgba(48,62,142,0.85)',
-                  fontFamily: "'Poppins', 'Montserrat', sans-serif",
-                  padding: '0 12px',
-                  appearance: 'none',
-                  transition: 'box-shadow 0.3s, border-color 0.3s'
-                }}
-              >
-                <option value="asc">Asc</option>
-                <option value="desc">Desc</option>
-              </select>
-            </div>
-          )}
-
+    {/* TABLES DROPDOWN */}
+    <div className="filter-item filter-item--small">
+      <button
+        className="dropbtn time-dropdown"
+        onClick={() => setShowTimeDropdown(!showTimeDropdown)}
+        onBlur={() => setTimeout(() => setShowTimeDropdown(false), 200)}
+      >
+        TABLES
+      </button>
+      {showTimeDropdown && (
+        <div
+          className="tables-dropdown-panel"
+          tabIndex={-1}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <label className="tables-checkbox-row">
+            <input
+              type="checkbox"
+              checked={
+                selectedAges.includes("fifteenDays") &&
+                selectedAges.includes("sixteenToThirty") &&
+                selectedAges.includes("month")
+              }
+              onChange={(e) => {
+                setSelectedAges((prev) => {
+                  const allKeys = ["fifteenDays", "sixteenToThirty", "month"];
+                  if (e.target.checked) {
+                    const s = new Set(prev);
+                    allKeys.forEach((k) => s.add(k));
+                    return Array.from(s);
+                  } else {
+                    return prev.filter((v) => !allKeys.includes(v));
+                  }
+                });
+              }}
+            />
+            Agents
+          </label>
+          <label className="tables-checkbox-row">
+            <input
+              type="checkbox"
+              checked={departmentViewEnabled}
+              onChange={(e) => setDepartmentViewEnabled(e.target.checked)}
+            />
+            Departments
+          </label>
+          <label className="tables-checkbox-row">
+            <input
+              type="checkbox"
+              checked={selectedAges.includes("pending")}
+              onChange={(e) => {
+                setSelectedAges((prev) =>
+                  e.target.checked
+                    ? [...prev, "pending"]
+                    : prev.filter((v) => v !== "pending")
+                );
+              }}
+            />
+            Status-Pending
+          </label>
+          <label className="tables-checkbox-row">
+            <input
+              type="checkbox"
+              checked={selectedAges.includes("metrics")}
+              onChange={(e) => {
+                setSelectedAges((prev) =>
+                  e.target.checked
+                    ? [...prev, "metrics"]
+                    : prev.filter((v) => v !== "metrics")
+                );
+              }}
+            />
+            Metrics Data
+          </label>
+          <label className="tables-checkbox-row">
+            <input
+              type="checkbox"
+              checked={selectedAges.includes("archived")}
+              onChange={(e) => {
+                setSelectedAges((prev) =>
+                  e.target.checked
+                    ? [...prev, "archived"]
+                    : prev.filter((v) => v !== "archived")
+                );
+              }}
+            />
+            Archived Tickets
+          </label>
         </div>
+      )}
+    </div>
 
+    {/* SORT */}
+    <div className="filter-item filter-item--tiny">
+      <select
+        value={sortOrder}
+        onChange={(e) => setSortOrder(e.target.value)}
+        className="sort-select"
+      >
+        <option value="asc">Asc</option>
+        <option value="desc">Desc</option>
+      </select>
+    </div>
+  </div>
+)}
+
+          
+        </div>
         {/* Conditional rendering: show AgentTicketAgeTable if age filter selected, else show department grids */}
         {selectedAges.length > 0 || departmentViewEnabled ? (
           <AgentTicketAgeTable
             membersData={filteredMembers}
+            metricsRows={metricsRows}
             selectedAges={selectedAges}
             selectedStatuses={selectedStatuses}
             onClose={() => setSelectedAges([])}
             showTimeDropdown={showTimeDropdown}
             selectedDepartmentId={currentDepartments && currentDepartments[0]?.value}
             selectedAgentNames={
-              currentDepartments && selectedDeptAgents[currentDepartments[0]?.value] || []
+              (currentDepartments && selectedDeptAgents[currentDepartments[0]?.value]) || []
             }
             departmentsMap={departmentsMap}
             departmentViewEnabled={departmentViewEnabled}
             setDepartmentViewEnabled={setDepartmentViewEnabled}
+            archivedRows={archivedRows}   // confirm this is present
           />
         ) : (
           departmentGrids
         )}
-
-
       </div>
     </>
   );
-
 }
-
 export default TicketDashboard;
 //Finally

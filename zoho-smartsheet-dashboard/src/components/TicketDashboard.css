@@ -9,7 +9,7 @@
   justify-content: space-between;
   width: 100%;
   max-width: 1400px;
-  margin: 0 auto 20px auto;
+  /* margin: 0 auto 10px auto; */
   gap: 2px;
 }
 
@@ -34,7 +34,7 @@
   display: flex;
   justify-content: center;    /* Horizontally center contents */
   max-width: 1400px;          /* Match main container width */
-  margin: 20px auto;             /* Center container within page */
+  margin: 2px auto;             /* Center container within page */
   width: 100%;                /* Responsive container width */
 }
 
@@ -48,7 +48,7 @@
 .legend-item {
   width: auto;               /* Fixed width matching select buttons */
   text-align: center;
-  padding: 7px 10px;
+  padding: 7px 3px;
   border-radius: 17px;
   font-weight: bold;
     background: #0d0d13 !important; 
@@ -90,8 +90,8 @@
 
 .legend-item span {
   margin-left: 10px;
-  font-size: 24px;
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 900;
 }
 
 .header-center {
@@ -100,13 +100,13 @@
   align-items: center;
   gap: 8px;
   flex: 1;
-  margin-left: -400px;
+  /* margin-left: -400px; */
 }
 
 .dashboard-title-container {
   font-family: 'Montserrat', 'Poppins', 'Segoe UI Semibold', Tahoma, Geneva, Verdana, sans-serif;
   font-weight: 900;
-  font-size: 44px;
+  font-size: 10px;
   letter-spacing: 2px;
   color: white;
   text-shadow: 2px 2px 6px rgba(0, 0, 50, 0.7);
@@ -166,7 +166,7 @@
 
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* grid-template-columns: repeat(5, 1fr); */
   gap: 15px;
   max-width: 1400px;
   margin: auto;
@@ -534,7 +534,7 @@ Hamburger button style
   align-items: center;
   justify-content: space-between;
   padding: 0 0px;
-  font-size: 23px;
+  font-size: 20px;
   /* height: 52px;   <-- REMOVE THIS LINE */
   box-shadow: 0 1.5px 8px #d4383860, 0 2px 12px #fc828230;
   margin-left: 0;
@@ -586,11 +586,11 @@ Hamburger button style
 .grid-container {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(3, auto);
+  /* grid-template-rows: repeat(3, auto); */
   gap: 18px;
   max-width: 1400px;
   margin: 40px auto 0 auto;
-  padding: 32px;
+  padding: 0px;
   border-radius: 40px;
   background: none;
 }
@@ -600,7 +600,7 @@ Hamburger button style
   position: relative;
   background: #1e4489;
   border-radius: 26px;
-  min-height: 120px;
+  min-height: 100px;
   /* box-shadow: 
     0 3px 22px #cf1645a6,
     0 5px 64px #000b inset; */
@@ -652,7 +652,7 @@ Hamburger button style
   border-radius: 14px;
   color:white;
   font-weight: 900;
-  font-size: 55px;
+  font-size: 40px;
   margin: 7px 3px 0 3px;
   padding: 2px 0;
   transition: background 0.25s, box-shadow 0.3s;
@@ -663,8 +663,8 @@ Hamburger button style
   color: white;
   text-shadow: 0 0 17px #dcff4155, 0 1px 16px #19191980;
   font-family: 'Montserrat', 'Poppins', sans-serif;
-  font-size: 19px;
-  margin-bottom: 8px;
+  font-size: 15px;
+  margin-bottom: 2px;
   text-transform: uppercase;
   text-align: center;
   letter-spacing: 0.8px;
@@ -690,7 +690,7 @@ Hamburger button style
   color: white;                /* Pure white */
   font-family: 'Montserrat', 'Poppins', sans-serif;
   font-size: 19px;
-  margin-bottom: 8px;
+  margin-bottom: 2px;
   text-transform: uppercase;
   text-align: center;
   letter-spacing: 0.8px;
@@ -860,9 +860,319 @@ button.time-dropdown::after {
 /* For Firefox */
 * {
   scrollbar-width: thin;            /* Makes the scrollbar thinner */
-  scrollbar-color: black #181b26; /* thumb color track color */
+  scrollbar-color: white; /* thumb color track color */
+}
+/*Final CSS Code*/
+/* === GLASS CAPSULE FILTER BAR – FINAL STYLES === */
+/* === GLASS FILTER BAR – BOX STYLE FOR ALL BUTTONS === */
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;                          /* tighter, equal gap between boxes */
+  padding: 5px 5px;
+  border-radius: 9px;
+
+  background: radial-gradient(circle at top left, #202b5a 0%, #0b1023 55%, #05060c 100%);
+  border: 1px solid rgba(130, 160, 255, 0.8);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+
+  width: fit-content;
+  max-width: 100%;
+  overflow: visible;
+
+  position: relative;
+  z-index: 60;
 }
 
+/* wrapper around each box */
+.filter-item,
+.filter-item--small,
+.filter-item--tiny {
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0;                          /* spacing controlled only by .filter-bar gap */
+}
+
+.filter-item--tiny {
+  justify-content: flex-end;
+}
+
+/* ===================================================== */
+/*      COMMON “BOX” LOOK FOR ALL FILTER ELEMENTS        */
+/* ===================================================== */
+
+.filter-box-base {
+  height: 34px;
+  padding: 0 5px;
+  border-radius: 9px;                /* box-like, not full pill */
+  background: rgba(10, 16, 36, 0.9);
+  border: 1px solid rgba(150, 178, 255, 0.7);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-family: 'Poppins','Montserrat',sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #f5f7ff;
+
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* active / focused visual */
+.filter-box-base--active,
+.filter-box-base:focus {
+  background: linear-gradient(135deg, #3048a8, #5c7cff);
+  border-color: #c5d1ff;
+  box-shadow: 0 0 12px rgba(120, 150, 255, 0.9);
+  outline: none;
+}
+
+/* ===================================================== */
+/*         REACT-SELECT CONTROLS (AGENTS/DEPT/STATUS)    */
+/* ===================================================== */
+
+.filter-bar .react-select__control {
+  min-height: 34px !important;
+  height: 34px !important;
+  border-radius: 9px !important;
+  background: rgba(10, 16, 36, 0.9) !important;
+  border: 1px solid rgba(150, 178, 255, 0.7) !important;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6) !important;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+/* text inside the select boxes */
+.filter-bar .react-select__single-value,
+.filter-bar .react-select__placeholder {
+  color: #f5f7ff;
+  font-family: 'Poppins','Montserrat',sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* remove arrows for AGENTS / DEPARTMENT / STATUS */
+.filter-bar .react-select__indicator,
+.filter-bar .react-select__indicator-separator {
+  display: none !important;
+}
+
+/* focused / menu open state */
+.filter-bar .react-select__control--is-focused,
+.filter-bar .react-select__control--menu-is-open {
+  background: linear-gradient(135deg, #3048a8, #5c7cff) !important;
+  border-color: #c5d1ff !important;
+  box-shadow: 0 0 12px rgba(120, 150, 255, 0.9) !important;
+}
+
+/* dropdown menu look */
+.filter-bar .react-select__menu {
+  margin-top: 4px;
+  border-radius: 9px;
+  background: #0e1015;
+  border: 1px solid #1e4489;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.filter-bar .react-select__menu-list {
+  padding: 4px 0;
+}
+
+.filter-bar .react-select__option {
+  font-size: 11px;
+  font-weight: 800;
+  color: #f5f7ff;
+  padding: 5px 5px;
+  cursor: pointer;
+}
+
+.filter-bar .react-select__option--is-focused {
+  background: #182038;
+}
+
+.filter-bar .react-select__option--is-selected {
+  background: #1e4489;
+  color: #ffffff;
+}
+
+/* ===================================================== */
+/*                  TABLES BUTTON BOX                    */
+/* ===================================================== */
+
+.filter-bar .dropbtn {
+  /* inherit common box style */
+  height: 34px;
+  padding: 0 5px;
+  border-radius: 9px;
+
+  background: rgba(10, 16, 36, 0.9);
+  border: 1px solid rgba(150, 178, 255, 0.7);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+
+  color: #f5f7ff;
+  font-family: 'Poppins','Montserrat',sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+
+  position: relative;
+}
+
+/* remove any arrow decoration on TABLES */
+.filter-bar .dropbtn::after,
+.filter-bar .dropbtn .arrow {
+  display: none !important;
+  content: none !important;
+}
+
+/* active TABLES state */
+.filter-bar .dropbtn:focus,
+.filter-bar .dropbtn--active {
+  background: linear-gradient(135deg, #3048a8, #5c7cff);
+  border-color: #c5d1ff;
+  box-shadow: 0 0 12px rgba(120, 150, 255, 0.9);
+  outline: none;
+}
+
+/* ===================================================== */
+/*                    ASC SELECT BOX                     */
+/* ===================================================== */
+
+.sort-select {
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid rgba(150, 178, 255, 0.7);
+  background: rgba(10, 16, 36, 0.9);
+  color: #f5f7ff;
+
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  font-family: 'Poppins','Montserrat',sans-serif;
+
+  padding: 0 5px;
+  outline: none;
+  cursor: pointer;
+}
+
+.sort-select:focus {
+  background: linear-gradient(135deg, #3048a8, #5c7cff);
+  border-color: #c5d1ff;
+  box-shadow: 0 0 12px rgba(120, 150, 255, 0.9);
+}
+
+/* ===================================================== */
+/*               TABLES DROPDOWN PANEL CARD              */
+/* ===================================================== */
+
+.tables-dropdown-panel {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  left: auto;
+
+  width: 140px;
+  background: #0e1015;
+  color: #f5f7ff;
+
+  border-radius: 9px;
+  border: 1px solid #1e4489;
+  padding: 5px 5px;
+
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+}
+
+.tables-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tables-checkbox-row input {
+  margin: 0;
+}
+
+.tables-checkbox-row:hover {
+  background: #182038;
+  border-radius: 9px;
+  padding-left: 5px;
+  color: white;
+}
+
+/* stacking context fix so dropdown is above cards */
+.grid-cell {
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-header-main {
+  position: relative;
+  z-index: 50;
+}
+
+/* ----------------- ASC / DSC PILL (NO ARROW, MATCH TABLES) ----------------- */
+.sort-select {
+  height: 34px;
+  min-width: 20px;                     /* <<< wider like TABLES */
+  border-radius: 9px;
+
+  background: rgba(10, 16, 36, 0.9) !important;
+  border: 1px solid rgba(150, 178, 255, 0.7);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+
+  color: #f5f7ff !important;
+  font-weight: 900;
+  font-size: 11px;
+  text-transform: uppercase;
+  font-family: 'Poppins','Montserrat',sans-serif;
+
+  /* center the text perfectly */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 5px;
+  outline: none;
+  cursor: pointer;
+
+  /* remove native arrow */
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: none !important;
+}
+
+/* hide arrow in old Edge */
+.sort-select::-ms-expand {
+  display: none !important;
+}
+
+/* active / focused look */
+.sort-select:focus {
+  background: linear-gradient(135deg, #3048a8, #5c7cff);
+  border-color: #c5d1ff;
+  box-shadow: 0 0 12px rgba(120, 150, 255, 0.9);
+}
 
 
 
