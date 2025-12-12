@@ -875,7 +875,7 @@ button.time-dropdown::after {
 
   background: radial-gradient(circle at top left, #202b5a 0%, #0b1023 55%, #05060c 100%);
   border: 1px solid rgba(130, 160, 255, 0.8);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7);
+  /* box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7); */
   backdrop-filter: blur(12px);
 
   width: fit-content;

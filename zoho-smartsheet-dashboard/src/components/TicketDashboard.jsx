@@ -1239,6 +1239,7 @@ function TicketDashboard() {
         menuPlacement="auto"
         maxMenuHeight={350}
         classNamePrefix="react-select"
+        controlShouldRenderValue={false}
       />
     </div>
 
@@ -1262,6 +1263,7 @@ function TicketDashboard() {
         onMenuOpen={() => setDeptMenuIsOpen(true)}
         onMenuClose={() => setDeptMenuIsOpen(false)}
         classNamePrefix="react-select"
+        controlShouldRenderValue={false}
       />
     </div>
 
@@ -1279,6 +1281,7 @@ function TicketDashboard() {
         styles={selectStyles}
         menuPortalTarget={document.body}
         classNamePrefix="react-select"
+        controlShouldRenderValue={false}
       />
     </div>
 

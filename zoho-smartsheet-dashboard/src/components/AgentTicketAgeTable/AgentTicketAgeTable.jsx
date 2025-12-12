@@ -2,12 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 
+
 import MetricsTable from "./MetricsTable";
 import PendingTable from "./PendingTable";
 import ArchivedTable from "./ArchivedTable";
 import DepartmentAgeTable from "./DepartmentAgeTable";
 import AgentAgeTable from "./AgentAgeTable";
-
+import { exportToExcel } from "../../utils/exportToExcel";
 import {
   formatDateWithMonthName,
   formatToIST,
@@ -689,34 +690,181 @@ export default function AgentTicketAgeTable({
             fontSize: 15,
             letterSpacing: 1,
             textTransform: "uppercase",
-            boxShadow: "0 0 16px rgba(0,0,0,0.45)",
+            // boxShadow: "0 0 16px rgba(0,0,0,0.45)",
             whiteSpace: "nowrap",
           }}
         >
           {currentTableTitle}
         </div>
 
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder={currentSearchPlaceholder}
+                {/* Right side: Search + Export */}
+        <div
           style={{
-            minWidth: 240,
-            maxWidth: 360,
-            padding: "5px 5px",
-            borderRadius: 4,
-            border: "2px solid #34495e",
-            outline: "none",
-            fontSize: 12,
-            fontWeight: 900,
-            fontFamily: baseFont,
-            background: "white",
-            color: "Black",
-            boxShadow: "0 0 10px rgba(0,0,0,0.4)",
-            textAlign: "left",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}
-        />
+        >
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder={currentSearchPlaceholder}
+            style={{
+              minWidth: 240,
+              maxWidth: 360,
+              padding: "5px 5px",
+              borderRadius: 4,
+              border: "2px solid #34495e",
+              outline: "none",
+              fontSize: 12,
+              fontWeight: 900,
+              fontFamily: baseFont,
+              background: "white",
+              color: "Black",
+              // boxShadow: "0 0 10px rgba(0,0,0,0.4)",
+              textAlign: "left",
+            }}
+          />
+
+  <button
+  onClick={() => {
+    let excelRows = [];
+
+    // 1) METRICS TABLE VIEW
+    if (showMetricsTable) {
+      // Use ALL filtered + sorted rows (not paged)
+      excelRows = sortedMetricsRows.map((r, idx) => ({
+        "Sl. No.": idx + 1,
+        "Agent Name": r.agentName,
+        "Ticket Number": r.ticketNumber,
+        "Ticket Status": r.status,
+        Department: r.departmentName,
+        "Ticket Created (IST)": r.createdTime,
+        "First Response Time": r.firstResponseTime,
+        "Resolution Time": r.resolutionTime,
+        Threads: r.threadCount,
+        "User Response": r.responseCount,
+        "Agent Response": r.outgoingCount,
+        Reopens: r.reopenCount,
+        Reassigns: r.reassignCount,
+      }));
+      exportToExcel(excelRows, "Ticket_Metrics.xlsx", "Metrics");
+      return;
+    }
+
+    // 2) PENDING STATUS TABLE VIEW
+    if (showPendingTable) {
+      // Use full searchedGroupedPendingRows (no pagination yet)
+      excelRows = searchedGroupedPendingRows.map((r, idx) => ({
+        "Sl. No.": idx + 1,
+        "Agent Name": r.name,
+        "Department Name": r.department,
+        "Total Pending Tickets": r.totalTickets,
+        "Ticket Status": r.status,
+        "Ticket Number": r.ticketNumber,
+        "Ticket Created Date & Time": r.ticketCreated,
+        "Ticket Age Days": r.daysNotResponded,
+      }));
+      exportToExcel(excelRows, "Pending_Tickets.xlsx", "Pending");
+      return;
+    }
+
+    // 3) ARCHIVED TICKETS TABLE VIEW
+    if (showArchivedTable) {
+      // IMPORTANT: use all filteredArchivedRows, not pagedArchivedRows
+      excelRows = filteredArchivedRows.map((r, idx) => ({
+        "Sl. No.": idx + 1,
+        "Agent Name": r.agentName,
+        Department: r.departmentName,
+        "Ticket Number": r.ticketNumber,
+        Subject: r.subject,
+        Status: r.status,
+        Created: r.createdTime,
+        Closed: r.closedTime,
+        "Resolution Time (Hours)": r.resolutionTimeHours,
+      }));
+      exportToExcel(excelRows, "Archived_Tickets.xlsx", "Archived");
+      return;
+    }
+
+    // 4) DEPARTMENT-WISE TICKET AGE VIEW
+    if (departmentViewEnabled) {
+      excelRows = departmentRowsForDisplay.map((r) => ({
+        "Sl. No.": r.si,
+        Department: r.departmentName,
+        "Total Tickets": r.total,
+        "1 - 7 Days Open": r.tickets_1_7_open,
+        "1 - 7 Days Hold": r.tickets_1_7_hold,
+        "1 - 7 Days In Progress": r.tickets_1_7_inProgress,
+        "1 - 7 Days Escalated": r.tickets_1_7_escalated,
+        "8 - 15 Days Open": r.tickets_8_15_open,
+        "8 - 15 Days Hold": r.tickets_8_15_hold,
+        "8 - 15 Days In Progress": r.tickets_8_15_inProgress,
+        "8 - 15 Days Escalated": r.tickets_8_15_escalated,
+        "15+ Days Open": r.tickets_15plus_open,
+        "15+ Days Hold": r.tickets_15plus_hold,
+        "15+ Days In Progress": r.tickets_15plus_inProgress,
+        "15+ Days Escalated": r.tickets_15plus_escalated,
+      }));
+      exportToExcel(excelRows, "Department_Ticket_Age.xlsx", "Departments");
+      return;
+    }
+
+    // 5) DEFAULT: AGENT-WISE TICKET AGE VIEW
+    excelRows = tableRowsForDisplay.map((row, index) => {
+      const base = {
+        "Sl. No.": index + 1,
+        "Agent Name": row.name,
+      };
+
+      // Add Department only when that column is visible (when a dept is selected)
+      if (selectedDepartmentId) {
+        base["Department"] = row.departmentName || "";
+      }
+
+      // Total = sum of all statuses across visible age bands
+      base["Total Ticket Count"] = visibleAgeColumns.reduce((sum, col) => {
+        return (
+          sum +
+          statusOrder.reduce(
+            (s, status) => s + countFromArray(row, col.ageProp, status),
+            0
+          )
+        );
+      }, 0);
+
+      // One column per visible age band
+      visibleAgeColumns.forEach((col) => {
+        base[col.label] = statusOrder.reduce(
+          (s, status) => s + countFromArray(row, col.ageProp, status),
+          0
+        );
+      });
+
+      return base;
+    });
+
+    exportToExcel(excelRows, "Agent_Ticket_Age.xlsx", "Agents");
+  }}
+  style={{
+    padding: "6px 14px",
+    backgroundColor: "#4CAF50",
+    color: "#fff",
+    border: "none",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  }}
+>
+  Export to Excel
+</button>
+
+
+
+        </div>
+
       </div>
 
             {/* Main scroll container: only the tables scroll */}
