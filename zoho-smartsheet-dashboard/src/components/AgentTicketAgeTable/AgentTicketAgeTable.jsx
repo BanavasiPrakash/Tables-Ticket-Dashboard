@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 
-
 import MetricsTable from "./MetricsTable";
 import PendingTable from "./PendingTable";
 import ArchivedTable from "./ArchivedTable";
@@ -54,6 +53,8 @@ export default function AgentTicketAgeTable({
 }) {
   const [hoveredRowIndex, setHoveredRowIndex] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [startDate, setStartDate] = useState(""); // YYYY-MM-DD
+  const [endDate, setEndDate] = useState("");     // YYYY-MM-DD
 
   const showMetricsTable = selectedAges.includes("metrics");
   const showPendingTable = selectedAges.includes("pending");
@@ -110,9 +111,7 @@ export default function AgentTicketAgeTable({
   const columnsToShow = [
     { key: "serial", label: "SI. NO." },
     { key: "name", label: "Agent Name" },
-    ...(selectedDepartmentId
-      ? [{ key: "department", label: "Department" }]
-      : []),
+    ...(selectedDepartmentId ? [{ key: "department", label: "Department" }] : []),
     { key: "total", label: "Total Ticket Count" },
     ...visibleAgeColumns,
   ];
@@ -150,6 +149,15 @@ export default function AgentTicketAgeTable({
   const filteredMetricsRows = useMemo(() => {
     if (!metricsRows || !Array.isArray(metricsRows)) return [];
 
+    const start =
+      startDate && !Number.isNaN(Date.parse(startDate))
+        ? new Date(startDate + "T00:00:00")
+        : null;
+    const end =
+      endDate && !Number.isNaN(Date.parse(endDate))
+        ? new Date(endDate + "T23:59:59")
+        : null;
+
     return metricsRows.filter((row) => {
       const agentOk =
         !selectedAgentNames?.length ||
@@ -165,7 +173,18 @@ export default function AgentTicketAgeTable({
         !normalizedStatusKeys?.length ||
         normalizedStatusKeys.includes(rowStatusNorm);
 
-      return agentOk && departmentOk && statusOk;
+      let dateOk = true;
+      if (start || end) {
+        const d = row.createdTime ? new Date(row.createdTime) : null;
+        if (!d || Number.isNaN(d.getTime())) {
+          dateOk = false;
+        } else {
+          if (start && d < start) dateOk = false;
+          if (end && d > end) dateOk = false;
+        }
+      }
+
+      return agentOk && departmentOk && statusOk && dateOk;
     });
   }, [
     metricsRows,
@@ -173,6 +192,8 @@ export default function AgentTicketAgeTable({
     selectedDepartmentId,
     departmentsMap,
     normalizedStatusKeys,
+    startDate,
+    endDate,
   ]);
 
   const sortedMetricsRows = useMemo(() => {
@@ -233,16 +254,16 @@ export default function AgentTicketAgeTable({
 
   // ---- METRICS PAGINATION (UI OUTSIDE TABLE) ----
 
-   const [metricsPage, setMetricsPage] = useState(1);
+  const [metricsPage, setMetricsPage] = useState(1);
   const metricsPageSize = 200;
 
-  useEffect(() => {
+    useEffect(() => {
     setMetricsPage(1);
   }, [searchTerm, selectedAgentNames, selectedDepartmentId, selectedStatuses]);
 
   const metricsTotalPages = useMemo(
     () => Math.max(1, Math.ceil(sortedMetricsRows.length / metricsPageSize)),
-    [sortedMetricsRows.length]
+    [sortedMetricsRows.length, metricsPageSize]
   );
 
   const pagedMetricsRows = useMemo(() => {
@@ -287,12 +308,12 @@ export default function AgentTicketAgeTable({
           if (normalizedStatusKeysSet && !normalizedStatusKeysSet.has(tktNorm))
             return;
 
-          let sortKey = tktNorm === "inprogress" ? "inProgress" : tktNorm;
+          const sortKey = tktNorm === "inprogress" ? "inProgress" : tktNorm;
 
-          let dr =
+          const dr =
             tkt.daysNotResponded !== undefined &&
             tkt.daysNotResponded !== "" &&
-            !isNaN(Number(tkt.daysNotResponded))
+            !Number.isNaN(Number(tkt.daysNotResponded))
               ? Number(tkt.daysNotResponded) < 1
                 ? 0
                 : Number(tkt.daysNotResponded)
@@ -310,6 +331,26 @@ export default function AgentTicketAgeTable({
         });
     });
 
+    // date filter for pending table (ticketCreated)
+    const start =
+      startDate && !Number.isNaN(Date.parse(startDate))
+        ? new Date(startDate + "T00:00:00")
+        : null;
+    const end =
+      endDate && !Number.isNaN(Date.parse(endDate))
+        ? new Date(endDate + "T23:59:59")
+        : null;
+
+    if (start || end) {
+      rows = rows.filter((r) => {
+        const d = r.ticketCreated ? new Date(r.ticketCreated) : null;
+        if (!d || Number.isNaN(d.getTime())) return false;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      });
+    }
+
     return rows.sort((a, b) => {
       const nameCmp = a.name.localeCompare(b.name, undefined, {
         sensitivity: "base",
@@ -323,6 +364,9 @@ export default function AgentTicketAgeTable({
     selectedAgentNames,
     normalizedStatusKeysSet,
     departmentsMap,
+    startDate,
+    endDate,
+    statusMapSort,
   ]);
 
   const groupedPendingRows = useMemo(() => {
@@ -464,7 +508,7 @@ export default function AgentTicketAgeTable({
           data.tickets_15plus_inProgress +
           data.tickets_15plus_escalated,
       }))
-      .sort((a, b) =>
+            .sort((a, b) =>
         a.departmentName.localeCompare(b.departmentName, undefined, {
           sensitivity: "base",
         })
@@ -578,6 +622,25 @@ export default function AgentTicketAgeTable({
     const raw = searchTerm.trim();
     let rows = [...archivedRows];
 
+    const start =
+      startDate && !Number.isNaN(Date.parse(startDate))
+        ? new Date(startDate + "T00:00:00")
+        : null;
+    const end =
+      endDate && !Number.isNaN(Date.parse(endDate))
+        ? new Date(endDate + "T23:59:59")
+        : null;
+
+    if (start || end) {
+      rows = rows.filter((row) => {
+        const d = row.createdTime ? new Date(row.createdTime) : null;
+        if (!d || Number.isNaN(d.getTime())) return false;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      });
+    }
+
     if (!raw) {
       return rows.sort((a, b) =>
         String(a.agentName || "")
@@ -601,23 +664,23 @@ export default function AgentTicketAgeTable({
       return words.some((w) => w.startsWith(q));
     });
 
-    return rows.sort((a, b) =>
-      String(a.agentName           || "")
+       return rows.sort((a, b) =>
+      String(a.agentName || "")
         .toLowerCase()
         .localeCompare(String(b.agentName || "").toLowerCase())
     );
-  }, [archivedRows, searchTerm]);
+  }, [archivedRows, searchTerm, startDate, endDate]);
 
   const [archivedPage, setArchivedPage] = useState(1);
   const archivedPageSize = 500;
 
   useEffect(() => {
     setArchivedPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, startDate, endDate]);
 
   const archivedTotalPages = useMemo(
     () => Math.max(1, Math.ceil(filteredArchivedRows.length / archivedPageSize)),
-    [filteredArchivedRows.length]
+    [filteredArchivedRows.length, archivedPageSize]
   );
 
   const pagedArchivedRows = useMemo(() => {
@@ -690,14 +753,13 @@ export default function AgentTicketAgeTable({
             fontSize: 15,
             letterSpacing: 1,
             textTransform: "uppercase",
-            // boxShadow: "0 0 16px rgba(0,0,0,0.45)",
             whiteSpace: "nowrap",
           }}
         >
           {currentTableTitle}
         </div>
 
-                {/* Right side: Search + Export */}
+        {/* Right side: Search + Date range + Export */}
         <div
           style={{
             display: "flex",
@@ -722,152 +784,174 @@ export default function AgentTicketAgeTable({
               fontFamily: baseFont,
               background: "white",
               color: "Black",
-              // boxShadow: "0 0 10px rgba(0,0,0,0.4)",
               textAlign: "left",
             }}
           />
 
-  <button
-  onClick={() => {
-    let excelRows = [];
+          {/* Date range inputs */}
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            style={{
+              padding: "4px 6px",
+              borderRadius: 4,
+              border: "1px solid #34495e",
+              fontSize: 11,
+              fontFamily: baseFont,
+            }}
+          />
+          <span style={{ color: "#fff", fontSize: 12 }}>to</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            style={{
+              padding: "4px 6px",
+              borderRadius: 4,
+              border: "1px solid #34495e",
+              fontSize: 11,
+              fontFamily: baseFont,
+            }}
+          />
 
-    // 1) METRICS TABLE VIEW
-    if (showMetricsTable) {
-      // Use ALL filtered + sorted rows (not paged)
-      excelRows = sortedMetricsRows.map((r, idx) => ({
-        "Sl. No.": idx + 1,
-        "Agent Name": r.agentName,
-        "Ticket Number": r.ticketNumber,
-        "Ticket Status": r.status,
-        Department: r.departmentName,
-        "Ticket Created (IST)": r.createdTime,
-        "First Response Time": r.firstResponseTime,
-        "Resolution Time": r.resolutionTime,
-        Threads: r.threadCount,
-        "User Response": r.responseCount,
-        "Agent Response": r.outgoingCount,
-        Reopens: r.reopenCount,
-        Reassigns: r.reassignCount,
-      }));
-      exportToExcel(excelRows, "Ticket_Metrics.xlsx", "Metrics");
-      return;
-    }
+          <button
+            onClick={() => {
+              let excelRows = [];
 
-    // 2) PENDING STATUS TABLE VIEW
-    if (showPendingTable) {
-      // Use full searchedGroupedPendingRows (no pagination yet)
-      excelRows = searchedGroupedPendingRows.map((r, idx) => ({
-        "Sl. No.": idx + 1,
-        "Agent Name": r.name,
-        "Department Name": r.department,
-        "Total Pending Tickets": r.totalTickets,
-        "Ticket Status": r.status,
-        "Ticket Number": r.ticketNumber,
-        "Ticket Created Date & Time": r.ticketCreated,
-        "Ticket Age Days": r.daysNotResponded,
-      }));
-      exportToExcel(excelRows, "Pending_Tickets.xlsx", "Pending");
-      return;
-    }
+              // 1) METRICS TABLE VIEW
+              if (showMetricsTable) {
+                excelRows = sortedMetricsRows.map((r, idx) => ({
+                  "Sl. No.": idx + 1,
+                  "Agent Name": r.agentName,
+                  "Ticket Number": r.ticketNumber,
+                  "Ticket Status": r.status,
+                  Department: r.departmentName,
+                  "Ticket Created (IST)": r.createdTime,
+                  "First Response Time": r.firstResponseTime,
+                  "Resolution Time": r.resolutionTime,
+                  Threads: r.threadCount,
+                  "User Response": r.responseCount,
+                  "Agent Response": r.outgoingCount,
+                  Reopens: r.reopenCount,
+                  Reassigns: r.reassignCount,
+                }));
+                exportToExcel(excelRows, "Ticket_Metrics.xlsx", "Metrics");
+                return;
+              }
 
-    // 3) ARCHIVED TICKETS TABLE VIEW
-    if (showArchivedTable) {
-      // IMPORTANT: use all filteredArchivedRows, not pagedArchivedRows
-      excelRows = filteredArchivedRows.map((r, idx) => ({
-        "Sl. No.": idx + 1,
-        "Agent Name": r.agentName,
-        Department: r.departmentName,
-        "Ticket Number": r.ticketNumber,
-        Subject: r.subject,
-        Status: r.status,
-        Created: r.createdTime,
-        Closed: r.closedTime,
-        "Resolution Time (Hours)": r.resolutionTimeHours,
-      }));
-      exportToExcel(excelRows, "Archived_Tickets.xlsx", "Archived");
-      return;
-    }
+              // 2) PENDING STATUS TABLE VIEW
+              if (showPendingTable) {
+                excelRows = searchedGroupedPendingRows.map((r, idx) => ({
+                  "Sl. No.": idx + 1,
+                  "Agent Name": r.name,
+                  "Department Name": r.department,
+                  "Total Pending Tickets": r.totalTickets,
+                  "Ticket Status": r.status,
+                  "Ticket Number": r.ticketNumber,
+                  "Ticket Created Date & Time": r.ticketCreated,
+                  "Ticket Age Days": r.daysNotResponded,
+                }));
+                exportToExcel(excelRows, "Pending_Tickets.xlsx", "Pending");
+                return;
+              }
 
-    // 4) DEPARTMENT-WISE TICKET AGE VIEW
-    if (departmentViewEnabled) {
-      excelRows = departmentRowsForDisplay.map((r) => ({
-        "Sl. No.": r.si,
-        Department: r.departmentName,
-        "Total Tickets": r.total,
-        "1 - 7 Days Open": r.tickets_1_7_open,
-        "1 - 7 Days Hold": r.tickets_1_7_hold,
-        "1 - 7 Days In Progress": r.tickets_1_7_inProgress,
-        "1 - 7 Days Escalated": r.tickets_1_7_escalated,
-        "8 - 15 Days Open": r.tickets_8_15_open,
-        "8 - 15 Days Hold": r.tickets_8_15_hold,
-        "8 - 15 Days In Progress": r.tickets_8_15_inProgress,
-        "8 - 15 Days Escalated": r.tickets_8_15_escalated,
-        "15+ Days Open": r.tickets_15plus_open,
-        "15+ Days Hold": r.tickets_15plus_hold,
-        "15+ Days In Progress": r.tickets_15plus_inProgress,
-        "15+ Days Escalated": r.tickets_15plus_escalated,
-      }));
-      exportToExcel(excelRows, "Department_Ticket_Age.xlsx", "Departments");
-      return;
-    }
+              // 3) ARCHIVED TICKETS TABLE VIEW
+              if (showArchivedTable) {
+                excelRows = filteredArchivedRows.map((r, idx) => ({
+                  "Sl. No.": idx + 1,
+                  "Agent Name": r.agentName,
+                  Department: r.departmentName,
+                  "Ticket Number": r.ticketNumber,
+                  Subject: r.subject,
+                  Status: r.status,
+                  Created: r.createdTime,
+                  Closed: r.closedTime,
+                  "Resolution Time (Hours)": r.resolutionTimeHours,
+                }));
+                exportToExcel(excelRows, "Archived_Tickets.xlsx", "Archived");
+                return;
+              }
 
-    // 5) DEFAULT: AGENT-WISE TICKET AGE VIEW
-    excelRows = tableRowsForDisplay.map((row, index) => {
-      const base = {
-        "Sl. No.": index + 1,
-        "Agent Name": row.name,
-      };
+              // 4) DEPARTMENT-WISE TICKET AGE VIEW
+              if (departmentViewEnabled) {
+                excelRows = departmentRowsForDisplay.map((r) => ({
+                  "Sl. No.": r.si,
+                  Department: r.departmentName,
+                  "Total Tickets": r.total,
+                  "1 - 7 Days Open": r.tickets_1_7_open,
+                  "1 - 7 Days Hold": r.tickets_1_7_hold,
+                  "1 - 7 Days In Progress": r.tickets_1_7_inProgress,
+                  "1 - 7 Days Escalated": r.tickets_1_7_escalated,
+                  "8 - 15 Days Open": r.tickets_8_15_open,
+                  "8 - 15 Days Hold": r.tickets_8_15_hold,
+                  "8 - 15 Days In Progress": r.tickets_8_15_inProgress,
+                  "8 - 15 Days Escalated": r.tickets_8_15_escalated,
+                  "15+ Days Open": r.tickets_15plus_open,
+                  "15+ Days Hold": r.tickets_15plus_hold,
+                  "15+ Days In Progress": r.tickets_15plus_inProgress,
+                  "15+ Days Escalated": r.tickets_15plus_escalated,
+                }));
+                exportToExcel(
+                  excelRows,
+                  "Department_Ticket_Age.xlsx",
+                  "Departments"
+                );
+                return;
+              }
 
-      // Add Department only when that column is visible (when a dept is selected)
-      if (selectedDepartmentId) {
-        base["Department"] = row.departmentName || "";
-      }
+              // 5) DEFAULT: AGENT-WISE TICKET AGE VIEW
+              excelRows = tableRowsForDisplay.map((row, index) => {
+                const base = {
+                  "Sl. No.": index + 1,
+                  "Agent Name": row.name,
+                };
 
-      // Total = sum of all statuses across visible age bands
-      base["Total Ticket Count"] = visibleAgeColumns.reduce((sum, col) => {
-        return (
-          sum +
-          statusOrder.reduce(
-            (s, status) => s + countFromArray(row, col.ageProp, status),
-            0
-          )
-        );
-      }, 0);
+                if (selectedDepartmentId) {
+                  base["Department"] = row.departmentName || "";
+                }
 
-      // One column per visible age band
-      visibleAgeColumns.forEach((col) => {
-        base[col.label] = statusOrder.reduce(
-          (s, status) => s + countFromArray(row, col.ageProp, status),
-          0
-        );
-      });
+                base["Total Ticket Count"] = visibleAgeColumns.reduce(
+                  (sum, col) =>
+                    sum +
+                    statusOrder.reduce(
+                      (s, status) =>
+                        s + countFromArray(row, col.ageProp, status),
+                      0
+                    ),
+                  0
+                );
 
-      return base;
-    });
+                visibleAgeColumns.forEach((col) => {
+                  base[col.label] = statusOrder.reduce(
+                    (s, status) =>
+                      s + countFromArray(row, col.ageProp, status),
+                    0
+                  );
+                });
 
-    exportToExcel(excelRows, "Agent_Ticket_Age.xlsx", "Agents");
-  }}
-  style={{
-    padding: "6px 14px",
-    backgroundColor: "#4CAF50",
-    color: "#fff",
-    border: "none",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontWeight: 600,
-    whiteSpace: "nowrap",
-  }}
->
-  Export to Excel
-</button>
+                return base;
+              });
 
-
-
+              exportToExcel(excelRows, "Agent_Ticket_Age.xlsx", "Agents");
+            }}
+            style={{
+              padding: "6px 14px",
+              backgroundColor: "#4CAF50",
+              color: "#fff",
+              border: "none",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Export to Excel
+          </button>
         </div>
-
       </div>
 
-            {/* Main scroll container: only the tables scroll */}
+      {/* Main scroll container: only the tables scroll */}
       <div
         style={{
           margin: "8px auto 8px auto",
@@ -879,21 +963,18 @@ export default function AgentTicketAgeTable({
           maxHeight: "70vh",
         }}
       >
-        {/* 1. METRICS TABLE VIEW */}
         {showMetricsTable ? (
           <MetricsTable
             metricsColumns={metricsColumns}
             sortedMetricsRows={pagedMetricsRows}
             agentAverageMap={agentAverageMap}
           />
-        ) : // 2. PENDING STATUS TABLE VIEW
-        showPendingTable ? (
+        ) : showPendingTable ? (
           <PendingTable
             pendingTableColumns={pendingTableColumns}
-            searchedGroupedPendingRows={searchedGroupedPendingRows}
+                        searchedGroupedPendingRows={searchedGroupedPendingRows}
           />
-        ) : // 3. ARCHIVED TICKETS TABLE VIEW
-        showArchivedTable ? (
+        ) : showArchivedTable ? (
           <ArchivedTable
             archivedColumns={archivedColumns}
             filteredArchivedRows={filteredArchivedRows}
@@ -903,8 +984,7 @@ export default function AgentTicketAgeTable({
             archivedTotalPages={archivedTotalPages}
             setArchivedPage={setArchivedPage}
           />
-        ) : // 4. DEPARTMENT-WISE AGE TABLE VIEW
-        departmentViewEnabled ? (
+        ) : departmentViewEnabled ? (
           <DepartmentAgeTable
             departmentRowsForDisplay={departmentRowsForDisplay}
             normalizedStatusKeys={normalizedStatusKeys}
@@ -912,7 +992,6 @@ export default function AgentTicketAgeTable({
             statusColors={statusColors}
           />
         ) : (
-          // 5. AGENT-WISE TICKET AGE TABLE VIEW
           <AgentAgeTable
             columnsToShow={columnsToShow}
             tableRowsForDisplay={tableRowsForDisplay}
@@ -963,3 +1042,4 @@ export default function AgentTicketAgeTable({
     </div>
   );
 }
+

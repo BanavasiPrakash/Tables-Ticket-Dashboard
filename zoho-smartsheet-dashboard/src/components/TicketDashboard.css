@@ -1087,11 +1087,11 @@ button.time-dropdown::after {
   right: 0;
   left: auto;
 
-  width: 140px;
-  background: #0e1015;
-  color: #f5f7ff;
+  width: 100px;
+  background: white;
+  color: Black;
 
-  border-radius: 9px;
+  /* border-radius: 9px; */
   border: 1px solid #1e4489;
   padding: 5px 5px;
 
@@ -1113,10 +1113,10 @@ button.time-dropdown::after {
 }
 
 .tables-checkbox-row:hover {
-  background: #182038;
-  border-radius: 9px;
-  padding-left: 5px;
-  color: white;
+  /* background: #182038; */
+  /* border-radius: 9px;
+  padding-left: 5px; */
+  color: Black;
 }
 
 /* stacking context fix so dropdown is above cards */

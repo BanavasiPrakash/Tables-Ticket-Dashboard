@@ -1,7 +1,7 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-const Bottleneck = require("Bottleneck");
+const Bottleneck = require("bottleneck");
 const axiosRetry = require("axios-retry").default;
 
 const app = express();
@@ -157,10 +157,13 @@ async function getAllAgentsForDepartment(departmentId, accessToken) {
 
   while (true) {
     const response = await limiter.schedule(() =>
-      axios.get(`https://desk.zoho.com/api/v1/departments/${departmentId}/agents`, {
-        headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
-        params: { from, limit },
-      })
+      axios.get(
+        `https://desk.zoho.com/api/v1/departments/${departmentId}/agents`,
+        {
+          headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
+          params: { from, limit },
+        }
+      )
     );
 
     const agentsBatch = response.data.data || [];
@@ -247,7 +250,6 @@ let agentIdToName = {};
 // cache for archived tickets per department (in RAM)
 const ARCHIVED_TTL_MS = 5 * 60 * 1000; // 5 minutes
 let archivedCache = {}; // { [departmentId_agent]: { ts, rows } }
-
 async function fetchTicketMetricsForTickets(accessToken, tickets) {
   const MAX_METRICS_TICKETS = 300;
 
@@ -284,7 +286,7 @@ async function fetchTicketMetricsForTickets(accessToken, tickets) {
           ticket.assignee.name ||
           ticket.assignee.email)) ||
       ticket.assigneeName ||
-      "";
+      "Unassigned"; // fallback so metrics views never show blank agent
 
     const dept = departmentList.find((d) => d.id === ticket.departmentId);
     const departmentId = ticket.departmentId || "";
@@ -346,7 +348,6 @@ const deptMembersInFlightPromise = {};
 let metricsCachePayload = null;
 let metricsCacheTime = 0;
 let metricsInFlightPromise = null;
-
 app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
   try {
     const nowTs = Date.now();
@@ -429,11 +430,7 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
       agentIdToName = {};
       users.forEach((u) => {
         const name =
-          u.displayName ||
-          u.fullName ||
-          u.name ||
-          u.email ||
-          "Unknown";
+          u.displayName || u.fullName || u.name || u.email || "Unknown";
         agentIdToName[String(u.id)] = name;
       });
 
@@ -488,7 +485,6 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
         }
 
         if (!userDeptAgingCounts[assigneeId]) userDeptAgingCounts[assigneeId] = {};
-
         const deptId = ticket.departmentId || "no_department";
         if (!userDeptAgingCounts[assigneeId][deptId]) {
           userDeptAgingCounts[assigneeId][deptId] = {
@@ -557,9 +553,9 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
                 normalizedStatus + "BetweenEightAndFifteenDaysTickets"
               ].push(ticketNumber);
             else if (ageDays >= 16)
-              agingCounts[
-                normalizedStatus + "OlderThanFifteenDaysTickets"
-              ].push(ticketNumber);
+              agingCounts[normalizedStatus + "OlderThanFifteenDaysTickets"].push(
+                ticketNumber
+              );
           }
 
           if (normalizedStatus === "open") {
@@ -601,7 +597,9 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
               );
             } else if (ageDays > 30) {
               agingCounts.inProgressOlderThanThirtyDaysCount++;
-              agingCounts.inProgressOlderThanThirtyDaysTickets.push(ticketNumber);
+              agingCounts.inProgressOlderThanThirtyDaysTickets.push(
+                ticketNumber
+              );
             }
           } else if (normalizedStatus === "escalated") {
             if (ageDays >= 0 && ageDays < 16) {
@@ -688,8 +686,8 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
           let perStatusAge = {};
 
           statusKeys.forEach((status) => {
-            perStatusAge[`${status}BetweenOneAndSevenDays`] = agentTickets.filter(
-              (t) => {
+            perStatusAge[`${status}BetweenOneAndSevenDays`] =
+              agentTickets.filter((t) => {
                 const rawStatus = (t.status || "").toLowerCase();
                 const normalized = statusMap[rawStatus] || rawStatus;
                 const ageDays = t.createdTime
@@ -701,8 +699,7 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
                   ageDays < 8 &&
                   ageDays >= 0
                 );
-              }
-            ).length;
+              }).length;
 
             perStatusAge[`${status}BetweenEightAndFifteenDays`] =
               agentTickets.filter((t) => {
@@ -726,9 +723,7 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
                 const ageDays = t.createdTime
                   ? (now2 - new Date(t.createdTime)) / (1000 * 60 * 60 * 24)
                   : null;
-                return (
-                  normalized === status && ageDays !== null && ageDays >= 16
-                );
+                return normalized === status && ageDays !== null && ageDays >= 16;
               }
             ).length;
 
@@ -769,9 +764,7 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
                 const ageDays = t.createdTime
                   ? (now2 - new Date(t.createdTime)) / (1000 * 60 * 60 * 24)
                   : null;
-                return (
-                  normalized === status && ageDays !== null && ageDays > 30
-                );
+                return normalized === status && ageDays !== null && ageDays > 30;
               }
             ).length;
           });
@@ -798,8 +791,8 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
                 : null;
               return {
                 departmentName:
-                  departmentList.find((dep) => dep.id === t.departmentId)
-                    ?.name || "",
+                  departmentList.find((dep) => dep.id === t.departmentId)?.name ||
+                  "",
                 departmentId: t.departmentId || "",
                 status: t.status || "",
                 ticketNumber: t.ticketNumber || t.id || "",
@@ -839,8 +832,7 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
             count_1_7 +=
               (agingCounts.openBetweenOneAndSevenDaysTickets.length || 0) +
               (agingCounts.holdBetweenOneAndSevenDaysTickets.length || 0) +
-              (agingCounts.inProgressBetweenOneAndSevenDaysTickets.length ||
-                0) +
+              (agingCounts.inProgressBetweenOneAndSevenDaysTickets.length || 0) +
               (agingCounts.escalatedBetweenOneAndSevenDaysTickets.length || 0);
 
             count_8_15 +=
@@ -902,7 +894,6 @@ app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
       .json({ error: "Failed to fetch assignee ticket counts" });
   }
 });
-
 app.get("/api/zoho-departments", async (req, res) => {
   try {
     const nowTs = Date.now();
@@ -1081,7 +1072,6 @@ app.get("/api/department-members/:departmentId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch department members" });
   }
 });
-
 app.get("/api/ticket-metrics-simple", async (req, res) => {
   try {
     const nowTs = Date.now();
@@ -1115,25 +1105,23 @@ app.get("/api/ticket-metrics-simple", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ticket metrics" });
   }
 });
-
-// NEW: archived tickets endpoint (filtered by optional agentId + optional departmentId)
+// archived + active closed tickets endpoint (optional departmentId + agentId)
 app.get("/api/archived-tickets", async (req, res) => {
   try {
     const { departmentId, agentId } = req.query;
     const cacheKey = (departmentId || "all") + "_" + (agentId || "all");
     const now = Date.now();
 
-    // 1) cache check
     const cached = archivedCache[cacheKey];
     if (cached && now - cached.ts < ARCHIVED_TTL_MS) {
       const rows = cached.rows;
-      const totalArchivedTickets = rows.length;
-      return res.json({ totalArchivedTickets, rows });
+      const totalTickets = rows.length;
+      return res.json({ totalTickets, rows });
     }
 
     const accessToken = await getAccessToken();
 
-    // 2) fetch archived tickets from Zoho (one dept or all)
+    // 1) archived tickets (from archivedTickets API)
     let archivedTickets = [];
     if (departmentId) {
       archivedTickets = await fetchAllArchivedTickets(accessToken, departmentId);
@@ -1144,72 +1132,98 @@ app.get("/api/archived-tickets", async (req, res) => {
       }
     }
 
-    // 3) filter: closed only + optional agent filter
-    const filtered = archivedTickets.filter((t) => {
-      const status = (t.status || "").toLowerCase();
-      if (status !== "closed") return false;
-      if (agentId && String(t.assigneeId || "") !== String(agentId)) {
-        return false;
-      }
-      return true;
-    });
+    // 2) active tickets (normal /tickets API) to pick CURRENT closed ones
+    const activeTickets = await fetchAllTickets(
+      accessToken,
+      departmentId ? [departmentId] : [],
+      agentId || null
+    );
 
-    // 4) per-agent counts from THIS filtered list
-    const countsByAgent = {};
-    filtered.forEach((t) => {
-      const key = String(t.assigneeId || "unassigned");
-      countsByAgent[key] = (countsByAgent[key] || 0) + 1;
-    });
+    // optional agent filter on archived side as well
+    if (agentId) {
+      archivedTickets = archivedTickets.filter(
+        (t) => String(t.assigneeId) === String(agentId)
+      );
+    }
 
-    // 5) build response rows
-    let siNo = 1;
-    const rows = filtered.map((t) => {
-      const agentKey = String(t.assigneeId || "unassigned");
-      const ticketAssignee = t.assignee || {};
-      const agentName =
-        agentIdToName[agentKey] ||
-        ticketAssignee.displayName ||
-        ticketAssignee.fullName ||
-        ticketAssignee.name ||
-        ticketAssignee.email ||
-        "Unassigned";
+    // filter only closed tickets from active list
+    const activeClosedTickets = activeTickets.filter(
+      (t) => (t.status || "").toLowerCase() === "closed"
+    );
 
-      const dept =
-        departmentList.find((d) => d.id === t.departmentId) || null;
+    // 3) map both sets to a common row shape
+    function mapTicket(ticket, source) {
+      const dept = departmentList.find((d) => d.id === ticket.departmentId);
+      const departmentId = ticket.departmentId || "";
       const departmentName = dept ? dept.name : "";
-      const totalArchivedTicketsForAgent = countsByAgent[agentKey] || 0;
+
+      const assigneeIdStr = ticket.assigneeId ? String(ticket.assigneeId) : "";
+      const nameFromMap = assigneeIdStr && agentIdToName[assigneeIdStr];
+      const agentName =
+        nameFromMap ||
+        (ticket.assignee &&
+          (ticket.assignee.displayName ||
+            ticket.assignee.fullName ||
+            ticket.assignee.name ||
+            ticket.assignee.email)) ||
+        ticket.assigneeName ||
+        "Unassigned"; // key fallback so archived table never shows blank agent
+
+      const createdTime = ticket.createdTime || "";
+      const closedTime = ticket.closedTime || ticket.lastModifiedTime || "";
+      const resolutionTimeHours = diffInHours(createdTime, closedTime);
 
       return {
-        siNo: siNo++,
-        agentId: agentKey,
+        // keep original id so you can debug
+        id: ticket.id,
+        ticketNumber: ticket.ticketNumber || ticket.id,
+        status: ticket.status || "",
         agentName,
-        departmentId: t.departmentId || "",
+        createdTime,
+        closedTime,
+        resolutionTimeHours,
+        departmentId,
         departmentName,
-        totalArchivedTickets: totalArchivedTicketsForAgent,
-        ticketNumber: t.ticketNumber || t.id,
-        subject: t.subject || "",
-        status: t.status || "",
-        createdTime: t.createdTime || "",
-        closedTime: t.closedTime || "",
-        resolutionTimeHours: diffInHours(t.createdTime, t.closedTime),
+        subject: ticket.subject || "",
+        source, // "archived" or "activeClosed"
       };
-    });
+    }
 
-    const totalArchivedTickets = rows.length;
-    archivedCache[cacheKey] = { ts: now, rows };
-    res.json({ totalArchivedTickets, rows });
+    const archivedRows = archivedTickets
+      .filter((t) => (t.status || "").toLowerCase() === "closed")
+      .map((t) => mapTicket(t, "archived"));
+
+    const activeClosedRows = activeClosedTickets.map((t) =>
+      mapTicket(t, "activeClosed")
+    );
+
+    // 4) merge and sort by closedTime (latest first)
+    const allRows = archivedRows
+      .concat(activeClosedRows)
+      .sort((a, b) => {
+        const da = a.closedTime ? new Date(a.closedTime).getTime() : 0;
+        const db = b.closedTime ? new Date(b.closedTime).getTime() : 0;
+        return db - da;
+      });
+
+    const totalTickets = allRows.length;
+
+    archivedCache[cacheKey] = { ts: now, rows: allRows };
+
+    res.json({ totalTickets, rows: allRows });
   } catch (error) {
     console.error("Error in /api/archived-tickets", error.message);
     res
       .status(500)
-      .json({ error: "Failed to fetch archived tickets" });
+      .json({ error: "Failed to fetch archived/closed tickets" });
   }
 });
-
+// Default health check route (optional, keep if already present or needed)
 app.get("/", (req, res) => {
-  res.send("Backend server running. Use API endpoints under /api.");
+  res.send("Zoho Desk backend is running");
 });
 
+// Start server
 app.listen(port, () => {
-  console.log(`Backend server running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });

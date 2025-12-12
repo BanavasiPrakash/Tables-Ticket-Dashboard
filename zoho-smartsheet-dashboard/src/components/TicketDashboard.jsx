@@ -126,6 +126,25 @@ const DepartmentOption = (props) => {
     </div>
   );
 };
+// Small cross icon to clear all selections in a Select
+const ClearIndicator = ({ onClear }) => (
+  <span
+    onMouseDown={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onClear();
+    }}
+    style={{
+      cursor: "pointer",
+      padding: "0 6px",
+      fontWeight: "bold",
+      fontSize: 14,
+      color: "#333",
+    }}
+  >
+    ×
+  </span>
+);
 // Styles for react-select dropdown components
 const selectStyles = {
   control: (base) => ({
@@ -659,322 +678,350 @@ function TicketDashboard() {
   let departmentGrids = null;
 
   if (selectedDepartments.length > 0 && currentDepartments.length > 0) {
-    // Render department grids for currently selected departments
-    departmentGrids = (
-      <>
-        <div
-          style={{
-       marginTop: 24,
-      display: "grid",
-      gap: "18px",
-      gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-      maxWidth: 1450,
-      marginLeft: "auto",
-      marginRight: "auto",
-      padding: "0 20px 0 20px",
-      boxSizing: "border-box",
-      height: "calc(100vh - 180px)", // adjust 180 to match your header+legend height
-      alignContent: "space-between",  // stretch rows from top to bottom
-          }}
-        >
-          {/* If multiple departments, show left pager arrow */}
-          {selectedDepartments.length > 1 && (
-            <div
-              onClick={() => {
-                // Decrement page, looping to last if at first page
-                setCurrentDeptPage(currentDeptPage > 1 ? currentDeptPage - 1 : selectedDepartments.length);
-              }}
-              style={{
-                fontSize: "48px",
-                fontWeight: "bold",
-                color: "#ffd700",
-                cursor: "pointer",
-                userSelect: "none",
-                transition: "transform 0.2s ease, color 0.2s ease",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                padding: "0 5px",
-                margin: "0",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.2)";
-                e.currentTarget.style.color = "#fff";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
-                e.currentTarget.style.color = "#ffd700";
-              }}
-            >
-              ‹
-            </div>
-          )}
+  // Render department grids for currently selected departments
+  departmentGrids = (
+    <>
+      <div
+        style={{
+          marginTop: 24,
+          display: "grid",
+          gridTemplateColumns: "60px minmax(0, 1fr) 60px", // left arrow, main panel, right arrow
+          alignItems: "stretch",
+          maxWidth: 1450,
+          marginLeft: "auto",
+          marginRight: "auto",
+          padding: "0 20px",
+          boxSizing: "border-box",
+          height: "calc(100vh - 180px)", // keep same height
+        }}
+      >
+        {/* Left pager arrow (or empty spacer if only one department) */}
+        {selectedDepartments.length > 1 ? (
           <div
+            onClick={() => {
+              setCurrentDeptPage(
+                currentDeptPage > 1 ? currentDeptPage - 1 : selectedDepartments.length
+              );
+            }}
             style={{
-              flex: 1,
+              fontSize: "48px",
+              fontWeight: "bold",
+              color: "#ffd700",
+              cursor: "pointer",
+              userSelect: "none",
+              transition: "transform 0.2s ease, color 0.2s ease",
               display: "flex",
+              alignItems: "center",
               justifyContent: "center",
-              width: "100%",
-              maxWidth: "1400px",
+              padding: "0 5px",
+              margin: "0",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.2)";
+              e.currentTarget.style.color = "#fff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.color = "#ffd700";
             }}
           >
-            {/* For each current department, render its grid */}
-            {currentDepartments.map((dep, depIdx) => {
-              const allowedDeptId = String(dep.value);
-              // Filter members to those who belong to this department
-              const departmentMembersRows = membersData.filter(
-                (m) => Array.isArray(m.departmentIds) && m.departmentIds.includes(allowedDeptId)
-              );
-              // Agent names mapped by department with tickets
-              const allDepartmentMemberNames = departmentAgentWithTicketsMap[allowedDeptId] || [];
-              // Map to track unique agents by normalized name for this department
-              const uniqueAgentsMap = new Map();
-              // Populate uniqueAgentsMap with agents who have tickets
-              departmentMembersRows.forEach((agent) => {
-                const normalizedName = agent.name.trim().toLowerCase();
-                const totalTickets =
-                  (agent.departmentTicketCounts && agent.departmentTicketCounts[allowedDeptId]) || 0;
-                // Department scoped aging counts fallback to empty object
-                const deptAging =
-                  (agent.departmentAgingCounts && agent.departmentAgingCounts[allowedDeptId]) || {};
-                // Set per-agent status counts from aging tickets arrays lengths
+            ‹
+          </div>
+        ) : (
+          <div />
+        )}
+
+        {/* Main department panel – always centered and full width */}
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "stretch",
+            justifyContent: "center",
+          }}
+        >
+          {currentDepartments.map((dep, depIdx) => {
+            const allowedDeptId = String(dep.value);
+
+            const departmentMembersRows = membersData.filter(
+              (m) => Array.isArray(m.departmentIds) && m.departmentIds.includes(allowedDeptId)
+            );
+
+            const allDepartmentMemberNames =
+              departmentAgentWithTicketsMap[allowedDeptId] || [];
+
+            const uniqueAgentsMap = new Map();
+
+            departmentMembersRows.forEach((agent) => {
+              const normalizedName = agent.name.trim().toLowerCase();
+              const totalTickets =
+                (agent.departmentTicketCounts &&
+                  agent.departmentTicketCounts[allowedDeptId]) ||
+                0;
+
+              const deptAging =
+                (agent.departmentAgingCounts &&
+                  agent.departmentAgingCounts[allowedDeptId]) ||
+                {};
+
+              uniqueAgentsMap.set(normalizedName, {
+                id: agent.id,
+                name: agent.name.trim(),
+                open:
+                  (deptAging.openBetweenOneAndFifteenDaysTickets?.length || 0) +
+                  (deptAging.openBetweenSixteenAndThirtyDaysTickets?.length || 0) +
+                  (deptAging.openOlderThanThirtyDaysTickets?.length || 0),
+                hold:
+                  (deptAging.holdBetweenOneAndFifteenDaysTickets?.length || 0) +
+                  (deptAging.holdBetweenSixteenAndThirtyDaysTickets?.length || 0) +
+                  (deptAging.holdOlderThanThirtyDaysTickets?.length || 0),
+                inProgress:
+                  (deptAging.inProgressBetweenOneAndFifteenDaysTickets?.length || 0) +
+                  (deptAging.inProgressBetweenSixteenAndThirtyDaysTickets?.length || 0) +
+                  (deptAging.inProgressOlderThanThirtyDaysTickets?.length || 0),
+                escalated:
+                  (deptAging.escalatedBetweenOneAndFifteenDaysTickets?.length || 0) +
+                  (deptAging.escalatedBetweenSixteenAndThirtyDaysTickets?.length || 0) +
+                  (deptAging.escalatedOlderThanThirtyDaysTickets?.length || 0),
+                unassigned: agent.tickets?.unassigned || 0,
+                totalTickets: totalTickets,
+              });
+            });
+
+            allDepartmentMemberNames.forEach((name) => {
+              const normalizedName = name.trim().toLowerCase();
+              if (!uniqueAgentsMap.has(normalizedName)) {
                 uniqueAgentsMap.set(normalizedName, {
-                  id: agent.id,
-                  name: agent.name.trim(),
-                  open:
-                    (deptAging.openBetweenOneAndFifteenDaysTickets?.length || 0) +
-                    (deptAging.openBetweenSixteenAndThirtyDaysTickets?.length || 0) +
-                    (deptAging.openOlderThanThirtyDaysTickets?.length || 0),
-                  hold:
-                    (deptAging.holdBetweenOneAndFifteenDaysTickets?.length || 0) +
-                    (deptAging.holdBetweenSixteenAndThirtyDaysTickets?.length || 0) +
-                    (deptAging.holdOlderThanThirtyDaysTickets?.length || 0),
-                  inProgress:
-                    (deptAging.inProgressBetweenOneAndFifteenDaysTickets?.length || 0) +
-                    (deptAging.inProgressBetweenSixteenAndThirtyDaysTickets?.length || 0) +
-                    (deptAging.inProgressOlderThanThirtyDaysTickets?.length || 0),
-                  escalated:
-                    (deptAging.escalatedBetweenOneAndFifteenDaysTickets?.length || 0) +
-                    (deptAging.escalatedBetweenSixteenAndThirtyDaysTickets?.length || 0) +
-                    (deptAging.escalatedOlderThanThirtyDaysTickets?.length || 0),
-                  unassigned: agent.tickets?.unassigned || 0,
-                  totalTickets: totalTickets,
+                  id: null,
+                  name: name.trim(),
+                  open: 0,
+                  hold: 0,
+                  inProgress: 0,
+                  escalated: 0,
+                  unassigned: 0,
+                  totalTickets: 0,
                 });
-              });
-              // Add fallback agents by name if not already included
-              allDepartmentMemberNames.forEach((name) => {
-                const normalizedName = name.trim().toLowerCase();
-                if (!uniqueAgentsMap.has(normalizedName)) {
-                  uniqueAgentsMap.set(normalizedName, {
-                    id: null,
-                    name: name.trim(),
-                    open: 0,
-                    hold: 0,
-                    inProgress: 0,
-                    escalated: 0,
-                    unassigned: 0,
-                    totalTickets: 0,
-                  });
-                }
-              });
-              // Determine agents to show based on selected agents or only those with tickets
-              const deptSelectedAgents = selectedDeptAgents[allowedDeptId] || [];
-              const agentsToShow =
-                deptSelectedAgents.length > 0
-                  ? Array.from(uniqueAgentsMap.values()).filter(agent =>
+              }
+            });
+
+            const deptSelectedAgents = selectedDeptAgents[allowedDeptId] || [];
+            const agentsToShow =
+              deptSelectedAgents.length > 0
+                ? Array.from(uniqueAgentsMap.values()).filter((agent) =>
                     deptSelectedAgents.includes(agent.name)
                   )
-                  : Array.from(uniqueAgentsMap.values()).filter(agent => agent.totalTickets > 0);
-              // Alphabetically sort agents before rendering
-              const sortedAgentsToShow = agentsToShow.slice().sort((a, b) =>
-                a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+                : Array.from(uniqueAgentsMap.values()).filter(
+                    (agent) => agent.totalTickets > 0
+                  );
+
+            const sortedAgentsToShow = agentsToShow
+              .slice()
+              .sort((a, b) =>
+                a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
               );
-              // Render the department grid container
-              return (
+
+            return (
+              <div
+                key={dep.value}
+                style={{
+                  background:
+                    departmentBgColors[
+                      (currentDeptPage - 1) % departmentBgColors.length
+                    ],
+                  borderRadius: 32,
+                  boxShadow: "0 8px 40px rgba(31,80,154,0.14)",
+                  padding: "24px 20px",
+                  width: "100%",
+                  minHeight: 420,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  boxSizing: "border-box",
+                  overflow: "hidden",
+                }}
+              >
+                {/* Department header */}
                 <div
-                  key={dep.value}
                   style={{
-                    background: departmentBgColors[(currentDeptPage - 1) % departmentBgColors.length],
-                    borderRadius: 32,
-                    boxShadow: "0 8px 40px rgba(31,80,154,0.14)",
-                    padding: "24px 20px",
-                    width: "100%",
-                    minHeight: 420,
+                    background: "#1E4489",
+                    color: "white",
+                    fontWeight: "bold",
+                    fontSize: 26,
+                    padding: "10px 10px",
+                    borderRadius: 17,
+                    textAlign: "center",
+                    marginBottom: 15,
+                    maxWidth: 400,
+                    width: "350px",
                     display: "flex",
-                    flexDirection: "column",
                     alignItems: "center",
-                    boxSizing: "border-box",
-                    overflow: "hidden",
+                    justifyContent: "center",
+                    gap: 20,
                   }}
                 >
-                  {/* Department header */}
-                  <div
-                    style={{
-                      background: "#1E4489",
-                      color: "white",
-                      fontWeight: "bold",
-                      fontSize: 26,
-                      padding: "10px 10px",
-                      borderRadius: 17,
-                      textAlign: "center",
-                      marginBottom: 15,
-                      maxWidth: 400,
-                      width: "350px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 20,
-                    }}
-                  >
-                    {dep.label.toUpperCase()}
-                  </div>
-                  {/* Agents grid */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                      gap: "22px",
-                      alignItems: "stretch",
-                      justifyContent: "center",
-                      width: "100%",
-                      margin: "0 auto",
-                      padding: "0 10px",
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    {sortedAgentsToShow.map((agent, index) => (
+                  {dep.label.toUpperCase()}
+                </div>
 
+                {/* Agents grid */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: "22px",
+                    alignItems: "stretch",
+                    justifyContent: "center",
+                    width: "100%",
+                    margin: "0 auto",
+                    padding: "0 10px",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {sortedAgentsToShow.map((agent, index) => (
+                    <div
+                      key={agent.id || `${dep.value}_${index}`}
+                      style={{
+                        background: "#1e4489",
+                        borderRadius: 18,
+                        boxShadow:
+                          "0 2px 12px #34495e36, inset 0 2px 8px #ffc80013",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        padding: "12px 8px",
+                        border: "1px solid White",
+                        minWidth: 180,
+                        maxWidth: 220,
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      {/* Agent name */}
                       <div
-                        key={agent.id || `${dep.value}_${index}`}
                         style={{
-                          background: "#1e4489",
-                          borderRadius: 18,
-                          boxShadow: "0 2px 12px #34495e36, inset 0 2px 8px #ffc80013",
+                          color: "white",
+                          fontWeight: 700,
+                          fontSize: 18,
+                          textAlign: "center",
+                          marginBottom: 6,
+                          wordBreak: "break-word",
+                          width: "100%",
+                          minHeight: "48px",
                           display: "flex",
-                          flexDirection: "column",
                           alignItems: "center",
-                          padding: "12px 8px",
-                          border: "1px solid White",
-                          minWidth: 180,
-                          maxWidth: 220,
-                          boxSizing: "border-box",
+                          justifyContent: "center",
                         }}
                       >
-                        {/* Agent name */}
+                        {agent.name}
+                      </div>
+
+                      {/* Ticket status counts */}
+                      {selectedStatusKeys.includes("total") ||
+                      selectedStatusKeys.length === 0 ? (
                         <div
                           style={{
-                            color: "white",
-                            fontWeight: 700,
-                            fontSize: 18,
-                            textAlign: "center",
-                            marginBottom: 6,
-                            wordBreak: "break-word",
                             width: "100%",
-                            minHeight: "48px",
                             display: "flex",
-                            alignItems: "center",
                             justifyContent: "center",
                           }}
                         >
-                          {agent.name}
-                        </div>
-                        {/* Ticket status counts */}
-                        {(selectedStatusKeys.includes("total") || selectedStatusKeys.length === 0) ? (
-                          /* Show total ticket count */
-                          <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-                            <div
-                              style={{
-                                background: "#204a99", // Deep blue background
-                                color: "white",
-                                fontWeight: "bold",
-                                fontSize: "2.5rem",
-                                borderRadius: 12,
-                                padding: "1px 0",
-                                minHeight: "10px",
-                                width: "90%",
-                                textAlign: "center",
-                                border: "3px solid white",
-                                boxShadow: "0 2px 12px #34495e36",
-                                fontFamily: "'Poppins', sans-serif",
-                                letterSpacing: 1,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center"
-                              }}
-                            >
-                              {agent.totalTickets}
-                            </div>
-                          </div>
-                        ) : (
-                          /* Show individual counts for selected statuses */
                           <div
                             style={{
+                              background: "#204a99",
+                              color: "white",
+                              fontWeight: "bold",
+                              fontSize: "2.5rem",
+                              borderRadius: 12,
+                              padding: "1px 0",
+                              minHeight: "10px",
+                              width: "90%",
+                              textAlign: "center",
+                              border: "3px solid white",
+                              boxShadow: "0 2px 12px #34495e36",
+                              fontFamily: "'Poppins', sans-serif",
+                              letterSpacing: 1,
                               display: "flex",
-                              flexDirection: "row",
-                              justifyContent: "center",
                               alignItems: "center",
-                              width: "100%",
-                              boxSizing: "border-box",
-                              marginTop: 8,
-                              flexWrap: "nowrap"
+                              justifyContent: "center",
                             }}
                           >
-                            {selectedStatusKeys.filter(key => key !== "total").map((key) => (
+                            {agent.totalTickets}
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "row",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            width: "100%",
+                            boxSizing: "border-box",
+                            marginTop: 8,
+                            flexWrap: "nowrap",
+                          }}
+                        >
+                          {selectedStatusKeys
+                            .filter((key) => key !== "total")
+                            .map((key) => (
                               <div
                                 key={key}
-                                className={`agent-status-box ${key.toLowerCase()}`} // Important for CSS coloring
+                                className={`agent-status-box ${key.toLowerCase()}`}
                               >
                                 {agent[key] ?? 0}
                               </div>
                             ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-          {/* If multiple departments, show right pager arrow */}
-          {selectedDepartments.length > 1 && (
-            <div
-              onClick={() =>
-                setCurrentDeptPage(
-                  currentDeptPage < selectedDepartments.length ? currentDeptPage + 1 : 1
-                )
-              }
-              style={{
-                fontSize: "48px",
-                fontWeight: "bold",
-                color: "#ffd700",
-                cursor: "pointer",
-                userSelect: "none",
-                transition: "transform 0.2s ease, color 0.2s ease",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                padding: "0 5px",
-                margin: "0",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.2)";
-                e.currentTarget.style.color = "white";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
-                e.currentTarget.style.color = "#ffd700";
-              }}
-            >
-              ›
-            </div>
-          )}
+              </div>
+            );
+          })}
         </div>
-      </>
-    );
-  } else {
+
+        {/* Right pager arrow (or empty spacer) */}
+        {selectedDepartments.length > 1 ? (
+          <div
+            onClick={() =>
+              setCurrentDeptPage(
+                currentDeptPage < selectedDepartments.length
+                  ? currentDeptPage + 1
+                  : 1
+              )
+            }
+            style={{
+              fontSize: "48px",
+              fontWeight: "bold",
+              color: "#ffd700",
+              cursor: "pointer",
+              userSelect: "none",
+              transition: "transform 0.2s ease, color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 5px",
+              margin: "0",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.2)";
+              e.currentTarget.style.color = "white";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.color = "#ffd700";
+            }}
+          >
+            ›
+          </div>
+        ) : (
+          <div />
+        )}
+      </div>
+    </>
+  );
+} else {
+
     // Render fallback grid container showing gridCells if no departments selected
     departmentGrids = (
       <div
@@ -1226,7 +1273,17 @@ function TicketDashboard() {
       <Select
         closeMenuOnSelect={false}
         hideSelectedOptions={false}
-        components={{ Option }}
+        components={{
+    Option,  // use your normal Option here, not departmentSelectComponents
+    DropdownIndicator: (props) => (
+      <>
+        {selectedCandidates.length > 0 && (
+          <ClearIndicator onClear={() => setSelectedCandidates([])} />
+        )}
+        <components.DropdownIndicator {...props} />
+      </>
+    ),
+  }}
         isMulti
         options={candidateOptions}
         value={selectedCandidates}
@@ -1248,7 +1305,17 @@ function TicketDashboard() {
       <Select
         closeMenuOnSelect={false}
         hideSelectedOptions={false}
-        components={departmentSelectComponents}
+        components={{
+    ...departmentSelectComponents,   // your custom Option renderer
+    DropdownIndicator: (props) => (
+      <>
+        {selectedDepartments.length > 0 && (
+          <ClearIndicator onClear={() => setSelectedDepartments([])} />
+        )}
+        <components.DropdownIndicator {...props} />
+      </>
+    ),
+  }}
         isMulti
         options={departmentDropdownOptions}
         value={selectedDepartments}
@@ -1272,7 +1339,17 @@ function TicketDashboard() {
       <Select
         closeMenuOnSelect={false}
         hideSelectedOptions={false}
-        components={{ Option }}
+        components={{
+    Option,
+    DropdownIndicator: (props) => (
+      <>
+        {selectedStatuses.length > 0 && (
+          <ClearIndicator onClear={() => setSelectedStatuses([])} />
+        )}
+        <components.DropdownIndicator {...props} />
+      </>
+    ),
+  }}
         isMulti
         options={statusOptions}
         value={selectedStatuses}
@@ -1394,26 +1471,26 @@ function TicketDashboard() {
           
         </div>
         {/* Conditional rendering: show AgentTicketAgeTable if age filter selected, else show department grids */}
-        {selectedAges.length > 0 || departmentViewEnabled ? (
-          <AgentTicketAgeTable
-            membersData={filteredMembers}
-            metricsRows={metricsRows}
-            selectedAges={selectedAges}
-            selectedStatuses={selectedStatuses}
-            onClose={() => setSelectedAges([])}
-            showTimeDropdown={showTimeDropdown}
-            selectedDepartmentId={currentDepartments && currentDepartments[0]?.value}
-            selectedAgentNames={
-              (currentDepartments && selectedDeptAgents[currentDepartments[0]?.value]) || []
-            }
-            departmentsMap={departmentsMap}
-            departmentViewEnabled={departmentViewEnabled}
-            setDepartmentViewEnabled={setDepartmentViewEnabled}
-            archivedRows={archivedRows}   // confirm this is present
-          />
-        ) : (
-          departmentGrids
-        )}
+        {/* // Show AgentTicketAgeTable ONLY when no departments are selected */}
+{selectedDepartments.length === 0 && (selectedAges.length > 0 || departmentViewEnabled) ? (
+  <AgentTicketAgeTable
+    membersData={filteredMembers}
+    metricsRows={metricsRows}
+    selectedAges={selectedAges}
+    selectedStatuses={selectedStatuses}
+    onClose={() => setSelectedAges([])}
+    showTimeDropdown={showTimeDropdown}
+    selectedDepartmentId={currentDepartments[0]?.value}
+    selectedAgentNames={currentDepartments ? selectedDeptAgents[currentDepartments[0]?.value] : []}
+    departmentsMap={departmentsMap}
+    departmentViewEnabled={departmentViewEnabled}
+    setDepartmentViewEnabled={setDepartmentViewEnabled}
+    archivedRows={archivedRows}
+  />
+) : (
+  departmentGrids
+)}
+
       </div>
     </>
   );
