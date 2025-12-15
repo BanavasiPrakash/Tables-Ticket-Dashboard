@@ -8,6 +8,8 @@ import ArchivedTable from "./ArchivedTable";
 import DepartmentAgeTable from "./DepartmentAgeTable";
 import AgentAgeTable from "./AgentAgeTable";
 import { exportToExcel } from "../../utils/exportToExcel";
+import AgentPerformanceTable from "./AgentPerformanceTable";
+
 import {
   formatDateWithMonthName,
   formatToIST,
@@ -50,15 +52,17 @@ export default function AgentTicketAgeTable({
   departmentViewEnabled,
   setDepartmentViewEnabled,
   archivedRows = [],
+  showAgentPerformance = false, // NEW
 }) {
   const [hoveredRowIndex, setHoveredRowIndex] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState(""); // YYYY-MM-DD
-  const [endDate, setEndDate] = useState("");     // YYYY-MM-DD
+  const [endDate, setEndDate] = useState(""); // YYYY-MM-DD
 
   const showMetricsTable = selectedAges.includes("metrics");
   const showPendingTable = selectedAges.includes("pending");
   const showArchivedTable = selectedAges.includes("archived");
+  const showAgentPerformanceTable = showAgentPerformance; // NEW
 
   const archivedColumns = [
     { key: "siNo", label: "SI. NO." },
@@ -101,7 +105,7 @@ export default function AgentTicketAgeTable({
     { key: "reassignCount", label: "Reassigns" },
     { key: "stagingData", label: "Staging (Status / Time)" },
     { key: "agentsHandled", label: "Agents (Name / Time)" },
-    { key: "avgFirstResponse", label: "Avg First Response Time & Days" },
+    // { key: "avgFirstResponse", label: "Avg First Response Time & Days" },
   ];
 
   const visibleAgeColumns = ageColumns.filter((col) =>
@@ -143,7 +147,6 @@ export default function AgentTicketAgeTable({
 
   const normalizedStatusKeysSet =
     normalizedStatusKeys.length > 0 ? new Set(normalizedStatusKeys) : null;
-
   // ------------------- METRICS TABLE DATA & FILTERS -------------------
 
   const filteredMetricsRows = useMemo(() => {
@@ -257,7 +260,7 @@ export default function AgentTicketAgeTable({
   const [metricsPage, setMetricsPage] = useState(1);
   const metricsPageSize = 200;
 
-    useEffect(() => {
+  useEffect(() => {
     setMetricsPage(1);
   }, [searchTerm, selectedAgentNames, selectedDepartmentId, selectedStatuses]);
 
@@ -508,7 +511,7 @@ export default function AgentTicketAgeTable({
           data.tickets_15plus_inProgress +
           data.tickets_15plus_escalated,
       }))
-            .sort((a, b) =>
+      .sort((a, b) =>
         a.departmentName.localeCompare(b.departmentName, undefined, {
           sensitivity: "base",
         })
@@ -664,7 +667,7 @@ export default function AgentTicketAgeTable({
       return words.some((w) => w.startsWith(q));
     });
 
-       return rows.sort((a, b) =>
+    return rows.sort((a, b) =>
       String(a.agentName || "")
         .toLowerCase()
         .localeCompare(String(b.agentName || "").toLowerCase())
@@ -687,7 +690,6 @@ export default function AgentTicketAgeTable({
     const start = (archivedPage - 1) * archivedPageSize;
     return filteredArchivedRows.slice(start, start + archivedPageSize);
   }, [filteredArchivedRows, archivedPage, archivedPageSize]);
-
   // ------------------- GLOBAL DOUBLE-CLICK CLOSE -------------------
 
   useEffect(() => {
@@ -701,6 +703,7 @@ export default function AgentTicketAgeTable({
   // ------------------- TITLE + SEARCH LABEL -------------------
 
   const currentTableTitle = useMemo(() => {
+    if (showAgentPerformanceTable) return "Agent Performance";
     if (showMetricsTable) return "Ticket Metrics Data";
     if (showPendingTable) return "Pending Status Tickets";
     if (showArchivedTable) return "Archived Tickets";
@@ -710,6 +713,7 @@ export default function AgentTicketAgeTable({
     }
     return "Agent-wise Ticket Age";
   }, [
+    showAgentPerformanceTable,
     showMetricsTable,
     showPendingTable,
     showArchivedTable,
@@ -719,13 +723,159 @@ export default function AgentTicketAgeTable({
   ]);
 
   const currentSearchPlaceholder = useMemo(() => {
+    if (showAgentPerformanceTable)
+      return "Search agent in performance table...";
     if (showMetricsTable)
       return "Search agent / ticket / status / department...";
     if (showPendingTable) return "Search agent / ticket / status...";
     if (showArchivedTable) return "Search agent / ticket...";
     if (departmentViewEnabled) return "Search by department...";
     return "Search agent / ticket...";
-  }, [showMetricsTable, showPendingTable, showArchivedTable, departmentViewEnabled]);
+  }, [
+    showAgentPerformanceTable,
+    showMetricsTable,
+    showPendingTable,
+    showArchivedTable,
+    departmentViewEnabled,
+  ]);
+
+  // ---------- AGENT PERFORMANCE TABLE DATA (TEMP) ----------
+  // ---------- AGENT PERFORMANCE TABLE DATA (AGGREGATED) ----------
+
+// which statuses count as resolved
+const resolvedStatusSet = new Set(["closed", "resolved", "archived"]);
+// which statuses count as escalated
+const escalatedStatusSet = new Set(["escalated"]);
+
+const agentPerformanceRows = useMemo(() => {
+  const byAgent = {};
+
+  const ensureAgent = (name) => {
+    const key = name || "Unknown";
+    if (!byAgent[key]) {
+      byAgent[key] = {
+        agentName: key,
+        ticketsCreated: 0,
+        ticketsResolved: 0,
+        pendingCount: 0,
+        frSumMin: 0,
+        frCount: 0,
+        resSumMin: 0,
+        resCount: 0,
+        threadSum: 0,
+        threadCount: 0,
+        escalatedCount: 0,
+        singleTouchCount: 0,
+      };
+    }
+    return byAgent[key];
+  };
+
+  // 1) METRICS ROWS -> created, FRT, resolution, threads, escalations, single-touch
+  sortedMetricsRows.forEach((row) => {
+    const agentName = row.agentName || "Unknown";
+    const ag = ensureAgent(agentName);
+
+    ag.ticketsCreated += 1;
+
+    const normStatus = normalizeStatus(row.status);
+
+    if (resolvedStatusSet.has(normStatus)) {
+      ag.ticketsResolved += 1;
+    }
+
+    const frMin = zohoHrsToMinutes(row.firstResponseTime);
+    if (frMin != null) {
+      ag.frSumMin += frMin;
+      ag.frCount += 1;
+    }
+
+    const resMin = zohoHrsToMinutes(row.resolutionTime);
+    if (resMin != null) {
+      ag.resSumMin += resMin;
+      ag.resCount += 1;
+    }
+
+    const tc = Number(row.threadCount) || 0;
+    ag.threadSum += tc;
+    if (tc > 0) ag.threadCount += 1;
+
+    if (escalatedStatusSet.has(normStatus)) {
+      ag.escalatedCount += 1;
+    }
+
+    const outgoing = Number(row.outgoingCount) || 0;
+    if (outgoing === 1) {
+      ag.singleTouchCount += 1;
+    }
+  });
+
+  // 2) PENDING TABLE -> pendingCount
+  pendingTableRows.forEach((row) => {
+    const agentName = row.name || "Unknown";
+    const ag = ensureAgent(agentName);
+    ag.pendingCount += 1;
+  });
+
+  // 3) ARCHIVED ROWS -> extra resolved (if any tickets only appear there)
+  filteredArchivedRows.forEach((row) => {
+    const agentName = row.agentName || "Unknown";
+    const ag = ensureAgent(agentName);
+    const normStatus = normalizeStatus(row.status);
+    if (resolvedStatusSet.has(normStatus)) {
+      ag.ticketsResolved += 1;
+    }
+  });
+
+  // build final rows
+  return Object.values(byAgent)
+    .map((ag) => {
+      const avgResMin =
+        ag.resCount > 0 ? Math.round(ag.resSumMin / ag.resCount) : null;
+      const avgFrMin =
+        ag.frCount > 0 ? Math.round(ag.frSumMin / ag.frCount) : null;
+      const avgThreads =
+        ag.threadCount > 0 ? ag.threadSum / ag.threadCount : 0;
+
+      return {
+        agentName: ag.agentName,
+        ticketsCreated: ag.ticketsCreated,
+        ticketsResolved: ag.ticketsResolved,
+        pendingCount: ag.pendingCount,
+        avgResolutionText:
+          avgResMin != null ? minutesToHM(avgResMin) : "-",
+        avgFirstResponseText:
+          avgFrMin != null ? minutesToHM(avgFrMin) : "-",
+        avgThreads,
+        escalatedCount: ag.escalatedCount,
+        singleTouchCount: ag.singleTouchCount,
+      };
+    })
+    .sort((a, b) =>
+      (a.agentName || "").localeCompare(b.agentName || "", undefined, {
+        sensitivity: "base",
+      })
+    );
+}, [sortedMetricsRows, pendingTableRows, filteredArchivedRows]);
+
+
+const [agentPerfPage, setAgentPerfPage] = useState(1);
+const agentPerfPageSize = 100;
+
+// NEW: filter by global searchTerm for performance table
+const agentPerformanceRowsForDisplay = useMemo(() => {
+  const q = searchTerm.trim().toLowerCase();
+  if (!q) return agentPerformanceRows;
+  return agentPerformanceRows.filter((row) =>
+    (row.agentName || "").toLowerCase().includes(q)
+  );
+}, [agentPerformanceRows, searchTerm]);
+
+const agentPerfTotalPages = Math.max(
+  1,
+  Math.ceil(agentPerformanceRowsForDisplay.length / agentPerfPageSize)
+);
+
 
   // ------------------- RENDER -------------------
 
@@ -950,7 +1100,6 @@ export default function AgentTicketAgeTable({
           </button>
         </div>
       </div>
-
       {/* Main scroll container: only the tables scroll */}
       <div
         style={{
@@ -963,7 +1112,16 @@ export default function AgentTicketAgeTable({
           maxHeight: "70vh",
         }}
       >
-        {showMetricsTable ? (
+        {showAgentPerformanceTable ? (
+          <AgentPerformanceTable
+           rows={agentPerformanceRowsForDisplay}   // <--- filtered using global searchTerm
+           
+            page={agentPerfPage}
+            pageSize={agentPerfPageSize}
+            totalPages={agentPerfTotalPages}
+            setPage={setAgentPerfPage}
+          />
+        ) : showMetricsTable ? (
           <MetricsTable
             metricsColumns={metricsColumns}
             sortedMetricsRows={pagedMetricsRows}
@@ -972,7 +1130,7 @@ export default function AgentTicketAgeTable({
         ) : showPendingTable ? (
           <PendingTable
             pendingTableColumns={pendingTableColumns}
-                        searchedGroupedPendingRows={searchedGroupedPendingRows}
+            searchedGroupedPendingRows={searchedGroupedPendingRows}
           />
         ) : showArchivedTable ? (
           <ArchivedTable
@@ -1042,4 +1200,3 @@ export default function AgentTicketAgeTable({
     </div>
   );
 }
-

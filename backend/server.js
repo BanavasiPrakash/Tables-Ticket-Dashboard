@@ -1,3 +1,6 @@
+const registerAgentPerformanceRoutes = require("./Application/agentPerformanceRoutes");
+
+
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -348,6 +351,16 @@ const deptMembersInFlightPromise = {};
 let metricsCachePayload = null;
 let metricsCacheTime = 0;
 let metricsInFlightPromise = null;
+
+registerAgentPerformanceRoutes(app, {
+  getAccessToken,
+  fetchAllTickets,
+  fetchAllArchivedTickets,
+  fetchTicketMetricsForTickets,
+  departmentList,
+});
+
+
 app.get("/api/zoho-assignees-with-ticket-counts", async (req, res) => {
   try {
     const nowTs = Date.now();

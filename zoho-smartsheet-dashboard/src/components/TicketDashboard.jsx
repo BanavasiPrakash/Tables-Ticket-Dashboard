@@ -4,6 +4,8 @@ import { FaBars } from "react-icons/fa"; // FontAwesome bars icon
 import "./TicketDashboard.css"; // Styles for the dashboard
 import AgentTicketAgeTable from "./AgentTicketAgeTable/AgentTicketAgeTable";
 
+
+
 // Constants representing Zoho IDs for columns and API backend URL
 const ASSIGNEE_COL_ID = 4549002565209988;
 const OPEN_STATUS_COL_ID = 1001;
@@ -200,6 +202,7 @@ const statusColors = {
 function TicketDashboard() {
   // Ref to ensure fetch is only done once
   const hasFetchedRef = useRef(false);
+ const [showAgentPerformance, setShowAgentPerformance] = useState(false);
   const [archivedRows, setArchivedRows] = useState([]);
   const [rows, setRows] = useState(() => {
     const saved = localStorage.getItem("ticketDashboardRows");
@@ -1450,6 +1453,14 @@ function TicketDashboard() {
             />
             Archived Tickets
           </label>
+<label className="tables-checkbox-row">
+  <input
+    type="checkbox"
+    checked={showAgentPerformance}
+    onChange={(e) => setShowAgentPerformance(e.target.checked)}
+  />
+  Agent Performance
+</label>
 
           
         </div>
@@ -1474,7 +1485,8 @@ function TicketDashboard() {
         </div>
         {/* Conditional rendering: show AgentTicketAgeTable if age filter selected, else show department grids */}
         {/* // Show AgentTicketAgeTable ONLY when no departments are selected */}
-{selectedDepartments.length === 0 && (selectedAges.length > 0 || departmentViewEnabled) ? (
+{selectedDepartments.length === 0 &&
+(selectedAges.length > 0 || departmentViewEnabled || showAgentPerformance) ? (
   <AgentTicketAgeTable
     membersData={filteredMembers}
     metricsRows={metricsRows}
@@ -1483,15 +1495,21 @@ function TicketDashboard() {
     onClose={() => setSelectedAges([])}
     showTimeDropdown={showTimeDropdown}
     selectedDepartmentId={currentDepartments[0]?.value}
-    selectedAgentNames={currentDepartments ? selectedDeptAgents[currentDepartments[0]?.value] : []}
+    selectedAgentNames={
+      currentDepartments ? selectedDeptAgents[currentDepartments[0]?.value] : []
+    }
     departmentsMap={departmentsMap}
     departmentViewEnabled={departmentViewEnabled}
     setDepartmentViewEnabled={setDepartmentViewEnabled}
     archivedRows={archivedRows}
+    showAgentPerformance={showAgentPerformance}  
   />
 ) : (
   departmentGrids
 )}
+
+
+
 
       </div>
     </>
